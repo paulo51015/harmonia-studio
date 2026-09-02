@@ -1,0 +1,33 @@
+name: harmonia_studio
+description: "Harmonia Studio - Mobile DAW & Interactive Music Education with Audio Intelligence"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.19.0
+  shared_preferences: ^2.3.2
+  audioplayers: ^6.1.0
+  record: ^5.2.0
+  pitch_detector_dart: ^0.0.7
+  ffmpeg_kit_flutter_min_gpl: ^6.0.3
+  share_plus: ^10.0.2
+  path_provider: ^2.1.4
+  permission_handler: ^11.3.1
+  file_picker: ^8.1.2
+  flutter_animate: ^4.5.0
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
