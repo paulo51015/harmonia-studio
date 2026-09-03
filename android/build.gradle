@@ -1,25 +1,29 @@
-allprojects {
+buildscript {
+    ext.kotlin_version = '1.9.24'
     repositories {
         google()
         mavenCentral()
     }
 
-    // Injeta a propriedade 'flutter' globalmente para todos os plugins de áudio
-    ext.flutter = [
-        compileSdkVersion: 34,
-        minSdkVersion: 24,
-        targetSdkVersion: 34
-    ]
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.3.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
 }
 
-rootProject.buildDir = "../build"
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-    ext.flutter = rootProject.ext.flutter
 }
-
 subprojects {
-    project.evaluationDependsOn(":app")
+    project.evaluationDependsOn(':app')
 }
 
 tasks.register("clean", Delete) {
