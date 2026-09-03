@@ -11,10 +11,10 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  intl: 0.18.1
+  intl: ^0.20.3
   shared_preferences: ^2.3.2
   audioplayers: ^6.1.0
-  record: ^5.2.1
+  record: ^7.0.0
   pitch_detector_dart: ^0.0.7
   ffmpeg_kit_flutter_min_gpl: ^6.0.3
   share_plus: ^10.0.2
