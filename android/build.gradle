@@ -3,27 +3,19 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    // Injeta a propriedade 'flutter' globalmente para todos os plugins de áudio
+    ext.flutter = [
+        compileSdkVersion: 34,
+        minSdkVersion: 24,
+        targetSdkVersion: 34
+    ]
 }
 
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-
-// Injeta compileSdkVersion e minSdkVersion para plugins de áudio (ex: record_android)
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty("android")) {
-            project.android {
-                compileSdkVersion 34
-                buildToolsVersion "34.0.0"
-                defaultConfig {
-                    minSdkVersion 24
-                    targetSdkVersion 34
-                }
-            }
-        }
-    }
+    ext.flutter = rootProject.ext.flutter
 }
 
 subprojects {
