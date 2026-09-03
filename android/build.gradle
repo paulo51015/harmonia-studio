@@ -2,7 +2,6 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://maven.arthenica.com' }
         maven { url 'https://jitpack.io' }
     }
 }
@@ -11,6 +10,20 @@ rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
+// Injeta namespace automaticamente em plugins legados para compatibilidade com AGP 8+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                if (namespace == null) {
+                    namespace project.group ?: "com.harmonia.${project.name.replace(':', '')}"
+                }
+            }
+        }
+    }
+}
+
 subprojects {
     project.evaluationDependsOn(":app")
 }
