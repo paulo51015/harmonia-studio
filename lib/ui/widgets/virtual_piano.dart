@@ -139,7 +139,7 @@ class _VirtualPianoState extends State<VirtualPiano> {
                           border: Border.all(color: Colors.black, width: 1),
                           boxShadow: const [
                             BoxShadow(
-                              color: Colors.black80,
+                              color: Colors.black87,
                               blurRadius: 4,
                               offset: Offset(1, 2),
                             ),

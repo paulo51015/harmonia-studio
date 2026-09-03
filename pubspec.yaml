@@ -14,8 +14,7 @@ dependencies:
   intl: ^0.20.3
   shared_preferences: ^2.3.2
   audioplayers: ^6.1.0
-  record: ^5.2.0
-  pitch_detector_dart: ^0.0.7
+  record: ^5.1.2
   share_plus: ^10.0.2
   path_provider: ^2.1.4
   permission_handler: ^11.3.1

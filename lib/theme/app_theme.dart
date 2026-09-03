@@ -47,7 +47,7 @@ class AppTheme {
           letterSpacing: 0.5,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: surface,
         elevation: 4,
         shadowColor: Colors.black54,
@@ -108,7 +108,7 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
