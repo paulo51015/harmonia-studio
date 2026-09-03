@@ -4,7 +4,8 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:record_mp3/record_mp3.dart';
 import '../models/track_model.dart';
 import 'synth_service.dart';
 
@@ -19,7 +20,6 @@ enum StudioTransportState {
 class StudioAudioEngine extends ChangeNotifier {
   final List<TrackModel> _tracks = [];
   final Map<String, AudioPlayer> _trackPlayers = {};
-  final AudioRecorder _audioRecorder = AudioRecorder();
 
   StudioTransportState _transportState = StudioTransportState.stopped;
   int _bpm = 120;
@@ -111,7 +111,6 @@ class StudioAudioEngine extends ChangeNotifier {
       if (track.id == trackId) {
         track.isArmedForRec = !track.isArmedForRec;
       } else {
-        // Modo DAW padrão: apenas 1 pista armada por vez para gravação segura
         track.isArmedForRec = false;
       }
     }
@@ -205,7 +204,6 @@ class StudioAudioEngine extends ChangeNotifier {
       _metronomeBeat = (_metronomeBeat % 4) + 1;
 
       if (_isMetronomeEnabled) {
-        // Beat 1: Tom agudo (880 Hz); Beats 2, 3, 4: Tom médio (440 Hz)
         final freq = _metronomeBeat == 1 ? 880.0 : 440.0;
         SynthService().playFrequency(freq);
       }
@@ -232,7 +230,6 @@ class StudioAudioEngine extends ChangeNotifier {
 
     _updateAllPlayerVolumes();
 
-    // Dispara playback em paralelo de todas as faixas que contêm arquivo de áudio
     for (final track in _tracks) {
       if (track.hasAudio) {
         final player = _trackPlayers[track.id];
@@ -264,8 +261,8 @@ class StudioAudioEngine extends ChangeNotifier {
     );
 
     try {
-      final hasPermission = await _audioRecorder.hasPermission();
-      if (!hasPermission) {
+      final status = await Permission.microphone.request();
+      if (!status.isGranted) {
         return false;
       }
 
@@ -274,24 +271,17 @@ class StudioAudioEngine extends ChangeNotifier {
       _currentlyRecordingTrackId = armedTrack.id;
       _currentPosition = Duration.zero;
 
-      // Define arquivo de destino para a gravação
       final tempDir = await getTemporaryDirectory();
-      final fileName = 'track_${armedTrack.id}_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final fileName = 'track_${armedTrack.id}_${DateTime.now().millisecondsSinceEpoch}.mp3';
       _currentRecordingFilePath = '${tempDir.path}/$fileName';
 
-      // Inicia gravação no microfone
-      await _audioRecorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 192000,
-          sampleRate: 44100,
-        ),
-        path: _currentRecordingFilePath!,
-      );
+      // Inicia gravação em MP3 de alta fidelidade
+      RecordMp3.instance.start(_currentRecordingFilePath!, (type) {
+        debugPrint('Erro no gravador MP3: $type');
+      });
 
       _updateAllPlayerVolumes();
 
-      // Inicia playback das faixas anteriores não armadas para retorno do músico
       for (final track in _tracks) {
         if (track.id != armedTrack.id && track.hasAudio) {
           final player = _trackPlayers[track.id];
@@ -327,10 +317,10 @@ class StudioAudioEngine extends ChangeNotifier {
 
     if (_transportState == StudioTransportState.recording) {
       try {
-        final path = await _audioRecorder.stop();
-        if (path != null && _currentlyRecordingTrackId != null) {
+        RecordMp3.instance.stop();
+        if (_currentRecordingFilePath != null && _currentlyRecordingTrackId != null) {
           final track = _tracks.firstWhere((t) => t.id == _currentlyRecordingTrackId);
-          track.filePath = path;
+          track.filePath = _currentRecordingFilePath;
           track.duration = _currentPosition;
           track.waveformSamples = _generateSimulatedWaveform();
           
@@ -343,7 +333,6 @@ class StudioAudioEngine extends ChangeNotifier {
       }
     }
 
-    // Para todos os players de pista
     for (final player in _trackPlayers.values) {
       try {
         await player.stop();
@@ -383,7 +372,6 @@ class StudioAudioEngine extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Gera amostras de amplitude para renderização da timeline DAW
   List<double> _generateSimulatedWaveform() {
     final rand = math.Random();
     final List<double> samples = [];
@@ -396,7 +384,6 @@ class StudioAudioEngine extends ChangeNotifier {
   @override
   void dispose() {
     masterStop();
-    _audioRecorder.dispose();
     for (final player in _trackPlayers.values) {
       player.dispose();
     }

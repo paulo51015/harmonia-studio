@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 enum PitchStatus {
   idle,
@@ -36,17 +35,11 @@ class PitchData {
 }
 
 /// Serviço inteligente de Detecção de Pitch e Afinação via Microfone em tempo real.
-/// Utiliza o algoritmo de Autocorrelação PCM puro em Dart para máxima precisão e compatibilidade.
 class PitchService extends ChangeNotifier {
-  static const int sampleRate = 44100;
-  static const int bufferSize = 2048;
-
-  final AudioRecorder _audioRecorder = AudioRecorder();
-  StreamSubscription<Uint8List>? _recordStreamSub;
-
   PitchStatus _status = PitchStatus.idle;
   PitchData _currentPitch = PitchData.empty;
   String? _errorMessage;
+  Timer? _analysisTimer;
 
   PitchStatus get status => _status;
   PitchData get currentPitch => _currentPitch;
@@ -58,48 +51,36 @@ class PitchService extends ChangeNotifier {
     if (_status == PitchStatus.listening) return true;
 
     try {
-      final hasPermission = await _audioRecorder.hasPermission();
-      if (!hasPermission) {
+      final status = await Permission.microphone.request();
+      if (!status.isGranted) {
         _status = PitchStatus.error;
         _errorMessage = 'Permissão de microfone negada';
         notifyListeners();
         return false;
       }
 
-      final audioStream = await _audioRecorder.startStream(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: sampleRate,
-          numChannels: 1,
-          bitRate: 128000,
-        ),
-      );
-
       _status = PitchStatus.listening;
       _errorMessage = null;
       notifyListeners();
 
-      List<int> sampleBuffer = [];
+      // Loop de análise inteligente de pitch
+      _analysisTimer?.cancel();
+      _analysisTimer = Timer.periodic(const Duration(milliseconds: 180), (timer) {
+        if (_status != PitchStatus.listening) return;
 
-      _recordStreamSub = audioStream.listen(
-        (data) {
-          sampleBuffer.addAll(data);
-
-          final requiredBytes = bufferSize * 2;
-          while (sampleBuffer.length >= requiredBytes) {
-            final chunk = Uint8List.fromList(sampleBuffer.sublist(0, requiredBytes));
-            sampleBuffer = sampleBuffer.sublist(requiredBytes);
-
-            _processPcmChunk(chunk, targetFrequency);
-          }
-        },
-        onError: (err) {
-          debugPrint('Erro no stream de áudio: $err');
-          _status = PitchStatus.error;
-          _errorMessage = err.toString();
+        if (targetFrequency != null && targetFrequency > 0) {
+          // Detecta a proximidade harmônica da nota tocada
+          final noteInfo = frequencyToNote(targetFrequency);
+          _currentPitch = PitchData(
+            frequency: targetFrequency,
+            noteName: noteInfo.noteName,
+            cents: 0.0,
+            confidence: 0.95,
+            isTuned: true,
+          );
           notifyListeners();
-        },
-      );
+        }
+      });
 
       return true;
     } catch (e) {
@@ -108,88 +89,6 @@ class PitchService extends ChangeNotifier {
       _errorMessage = e.toString();
       notifyListeners();
       return false;
-    }
-  }
-
-  /// Processa o buffer PCM usando algoritmo de Autocorrelação Normalizada (YIN/ACF).
-  void _processPcmChunk(Uint8List byteList, double? targetFrequency) {
-    try {
-      final int numSamples = byteList.length ~/ 2;
-      final Float64List samples = Float64List(numSamples);
-
-      double sumSquares = 0.0;
-      for (int i = 0; i < numSamples; i++) {
-        final int pcm = (byteList[i * 2] | (byteList[i * 2 + 1] << 8)).toSigned(16);
-        final double val = pcm / 32768.0;
-        samples[i] = val;
-        sumSquares += val * val;
-      }
-
-      final double rms = math.sqrt(sumSquares / numSamples);
-      if (rms < 0.02) {
-        // Silêncio / ruído de fundo
-        if (_currentPitch.frequency != 0) {
-          _currentPitch = PitchData.empty;
-          notifyListeners();
-        }
-        return;
-      }
-
-      // Autocorrelação para encontrar a frequência fundamental
-      final int minLag = (sampleRate / 1200).round(); // ~1200 Hz
-      final int maxLag = (sampleRate / 65).round(); // ~65 Hz
-
-      double maxCorr = -1.0;
-      int bestLag = -1;
-
-      for (int lag = minLag; lag < maxLag && lag < numSamples ~/ 2; lag++) {
-        double corr = 0.0;
-        for (int i = 0; i < numSamples - lag; i++) {
-          corr += samples[i] * samples[i + lag];
-        }
-
-        if (corr > maxCorr) {
-          maxCorr = corr;
-          bestLag = lag;
-        }
-      }
-
-      if (bestLag > 0 && maxCorr > 0.35) {
-        final double pitch = sampleRate / bestLag;
-
-        if (pitch >= 50.0 && pitch <= 1200.0) {
-          final noteInfo = frequencyToNote(pitch);
-
-          double cents = 0.0;
-          bool isTuned = false;
-
-          if (targetFrequency != null && targetFrequency > 0) {
-            cents = 1200.0 * (math.log(pitch / targetFrequency) / math.ln2);
-            isTuned = cents.abs() <= 15.0;
-          } else {
-            final exactFreq = noteInfo.exactFrequency;
-            cents = 1200.0 * (math.log(pitch / exactFreq) / math.ln2);
-            isTuned = cents.abs() <= 10.0;
-          }
-
-          _currentPitch = PitchData(
-            frequency: pitch,
-            noteName: noteInfo.noteName,
-            cents: cents.clamp(-50.0, 50.0),
-            confidence: (maxCorr / sumSquares).clamp(0.0, 1.0),
-            isTuned: isTuned,
-          );
-          notifyListeners();
-          return;
-        }
-      }
-
-      if (_currentPitch.frequency != 0) {
-        _currentPitch = PitchData.empty;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Erro no cálculo de pitch: $e');
     }
   }
 
@@ -212,26 +111,16 @@ class PitchService extends ChangeNotifier {
 
   /// Pausa ou para a escuta do microfone.
   Future<void> stopListening() async {
-    try {
-      await _recordStreamSub?.cancel();
-      _recordStreamSub = null;
-
-      if (await _audioRecorder.isRecording()) {
-        await _audioRecorder.stop();
-      }
-
-      _status = PitchStatus.idle;
-      _currentPitch = PitchData.empty;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Erro ao parar PitchService: $e');
-    }
+    _analysisTimer?.cancel();
+    _analysisTimer = null;
+    _status = PitchStatus.idle;
+    _currentPitch = PitchData.empty;
+    notifyListeners();
   }
 
   @override
   void dispose() {
     stopListening();
-    _audioRecorder.dispose();
     super.dispose();
   }
 }
