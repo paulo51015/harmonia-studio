@@ -1,18 +1,16 @@
 name: harmonia_studio
 description: "Harmonia Studio - Mobile DAW & Interactive Music Education with Audio Intelligence"
-publish_to: "none"
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.2.0 <4.0.0"
+  sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-
   flutter_localizations:
     sdk: flutter
-
   intl: ^0.20.3
   shared_preferences: ^2.3.2
   audioplayers: ^6.1.0
@@ -24,10 +22,12 @@ dependencies:
   flutter_animate: ^4.5.0
   google_fonts: ^6.2.1
 
+dependency_overrides:
+  record_platform_interface: 1.5.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^4.0.0
 
 flutter:
