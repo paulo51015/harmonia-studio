@@ -26,7 +26,7 @@ class AppLocalizations {
     'pt': {
       // App & Gerais
       'app_name': 'Harmonia Studio',
-      'app_tagline': 'DAW Multi-pistas & Aulas Interativas de Música',
+      'app_tagline': 'DAW Multi-pistas, Compositor IA & Aulas de Música',
       'cancel': 'Cancelar',
       'save': 'Salvar',
       'confirm': 'Confirmar',
@@ -58,8 +58,28 @@ class AppLocalizations {
 
       // Navegação
       'nav_studio': 'Estúdio DAW',
-      'nav_lessons': 'Aulas Interativas',
-      'nav_settings': 'Configurações',
+      'nav_composer': 'Compositor IA',
+      'nav_lessons': 'Aulas',
+      'nav_settings': 'Ajustes',
+
+      // Compositor IA
+      'composer_title': 'Compositor IA de Músicas',
+      'composer_subtitle': 'Digite uma ideia e o app cria a melodia, harmonia, arranjo e letra',
+      'composer_prompt_label': 'Qual é a sua ideia de música?',
+      'composer_prompt_hint': 'Ex: Um pop acústico relaxante no violão sobre fim de tarde...',
+      'composer_genre': 'Gênero Musical',
+      'composer_mood': 'Clima / Humor',
+      'composer_key': 'Tom Musical',
+      'composer_bpm': 'Andamento (BPM)',
+      'composer_generate_btn': 'Compor Música & Melodia ✨',
+      'composer_generating': 'Compondo acordes, melodias e arranjo...',
+      'composer_preview_audio': 'Prévia em Áudio Sintetizado',
+      'composer_chords': 'Progressão Harmônica (Acordes)',
+      'composer_melody': 'Linha Melódica (Notas)',
+      'composer_structure': 'Estrutura da Música',
+      'composer_lyrics': 'Letra Sugerida',
+      'composer_export_daw': '🎛️ Transferir e Gravar no Estúdio DAW',
+      'composer_exported_success': 'Música transferida para o Estúdio! Pista de voz armada para gravação.',
 
       // Módulo Estúdio DAW
       'daw_title': 'Estúdio de Gravação',
@@ -129,7 +149,7 @@ class AppLocalizations {
     'en': {
       // App & General
       'app_name': 'Harmonia Studio',
-      'app_tagline': 'Multi-track DAW & Interactive Music Education',
+      'app_tagline': 'Multi-track DAW, AI Composer & Music Education',
       'cancel': 'Cancel',
       'save': 'Save',
       'confirm': 'Confirm',
@@ -161,8 +181,28 @@ class AppLocalizations {
 
       // Navigation
       'nav_studio': 'DAW Studio',
-      'nav_lessons': 'Interactive Lessons',
+      'nav_composer': 'AI Composer',
+      'nav_lessons': 'Lessons',
       'nav_settings': 'Settings',
+
+      // AI Composer
+      'composer_title': 'AI Music & Melody Composer',
+      'composer_subtitle': 'Type an idea and AI generates chord progressions, melodies, and lyrics',
+      'composer_prompt_label': 'What is your song idea?',
+      'composer_prompt_hint': 'Ex: A relaxing acoustic guitar pop track about sunsets...',
+      'composer_genre': 'Music Genre',
+      'composer_mood': 'Mood / Vibe',
+      'composer_key': 'Musical Key',
+      'composer_bpm': 'Tempo (BPM)',
+      'composer_generate_btn': 'Compose Song & Melody ✨',
+      'composer_generating': 'Composing chords, melody and arrangement...',
+      'composer_preview_audio': 'Synthesized Audio Preview',
+      'composer_chords': 'Chord Progression',
+      'composer_melody': 'Melody Line (Notes)',
+      'composer_structure': 'Song Structure',
+      'composer_lyrics': 'Suggested Lyrics',
+      'composer_export_daw': '🎛️ Open & Record in DAW Studio',
+      'composer_exported_success': 'Song transferred to DAW! Vocal track armed for recording.',
 
       // DAW Module
       'daw_title': 'DAW Recording Studio',
@@ -232,7 +272,7 @@ class AppLocalizations {
     'es': {
       // App & General
       'app_name': 'Harmonia Studio',
-      'app_tagline': 'DAW Multi-pistas y Lecciones Interactivas de Música',
+      'app_tagline': 'DAW Multi-pistas, Compositor IA y Lecciones de Música',
       'cancel': 'Cancelar',
       'save': 'Guardar',
       'confirm': 'Confirmar',
@@ -264,8 +304,28 @@ class AppLocalizations {
 
       // Navigation
       'nav_studio': 'Estudio DAW',
+      'nav_composer': 'Compositor IA',
       'nav_lessons': 'Lecciones',
       'nav_settings': 'Ajustes',
+
+      // Compositor IA
+      'composer_title': 'Compositor IA de Música',
+      'composer_subtitle': 'Escribe una idea y la IA genera la melodía, armonía y letra',
+      'composer_prompt_label': '¿Cuál es tu idea de canción?',
+      'composer_prompt_hint': 'Ej: Un pop acústico relajante con guitarra sobre el atardecer...',
+      'composer_genre': 'Género Musical',
+      'composer_mood': 'Ambiente / Mood',
+      'composer_key': 'Tonalidad',
+      'composer_bpm': 'Tempo (BPM)',
+      'composer_generate_btn': 'Componer Música y Melodía ✨',
+      'composer_generating': 'Componiendo acordes, melodía y arreglo...',
+      'composer_preview_audio': 'Vista previa en audio sintetizado',
+      'composer_chords': 'Progresión de Acordes',
+      'composer_melody': 'Línea Melódica (Notas)',
+      'composer_structure': 'Estructura de la Canción',
+      'composer_lyrics': 'Letra Sugerida',
+      'composer_export_daw': '🎛️ Abrir y Grabar en el Estudio DAW',
+      'composer_exported_success': '¡Canción transferida al Estudio DAW con éxito!',
 
       // DAW Module
       'daw_title': 'Estudio de Grabación DAW',
@@ -328,7 +388,7 @@ class AppLocalizations {
       'settings_user_logged': 'Usuario Conectado',
       'settings_audio_engine': 'Motor de Audio',
       'settings_sample_rate': 'Muestreo: 44.1 kHz / 16-bit PCM',
-      'settings_buffer_size': 'Latencia de Audio: Baja (Modo DAW)',
+      'settings_buffer_size': 'Latência de Audio: Baja (Modo DAW)',
       'settings_dark_mode': 'Tema Oscuro DAW (Activo)',
       'settings_about': 'Acerca de Harmonia Studio v1.0.0',
     },

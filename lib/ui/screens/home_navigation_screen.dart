@@ -6,6 +6,7 @@ import '../../services/pitch_service.dart';
 import '../../services/studio_audio_engine.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/language_selector_menu.dart';
+import 'ai_composer_screen.dart';
 import 'interactive_lesson_screen.dart';
 import 'settings_screen.dart';
 import 'studio_screen.dart';
@@ -43,6 +44,10 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
 
     final List<Widget> screens = [
       StudioScreen(audioEngine: widget.audioEngine),
+      AiComposerScreen(
+        studioEngine: widget.audioEngine,
+        onNavigateToStudio: _navigateToStudio,
+      ),
       InteractiveLessonScreen(
         pitchService: widget.pitchService,
         audioEngine: widget.audioEngine,
@@ -94,9 +99,10 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
+          type: BottomNavigationBarType.fixed,
           onTap: (index) {
             // Se estiver saindo da tela de aulas, pausa a escuta do microfone
-            if (_currentIndex == 1 && index != 1) {
+            if (_currentIndex == 2 && index != 2) {
               widget.pitchService.stopListening();
             }
             setState(() => _currentIndex = index);
@@ -106,6 +112,11 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
               icon: const Icon(Icons.album_outlined),
               activeIcon: const Icon(Icons.album, color: AppTheme.cyan),
               label: loc.translate('nav_studio'),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.auto_awesome_outlined),
+              activeIcon: const Icon(Icons.auto_awesome, color: AppTheme.cyan),
+              label: loc.translate('nav_composer'),
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.school_outlined),
