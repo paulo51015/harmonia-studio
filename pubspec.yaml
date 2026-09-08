@@ -1,5 +1,5 @@
 name: harmonia_studio
-description: "Harmonia Studio - App de Áudio"
+description: "Harmonia Studio - Mobile DAW & Interactive Music Education with Audio Intelligence"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -14,8 +14,7 @@ dependencies:
   intl: ^0.20.3
   shared_preferences: ^2.3.2
   audioplayers: ^6.1.0
-  record: ^5.2.0
-  record_mp3: ^3.0.0
+  record: ^5.1.2
   share_plus: ^10.0.2
   path_provider: ^2.1.4
   permission_handler: ^11.3.1
@@ -24,24 +23,12 @@ dependencies:
   google_fonts: ^6.2.1
 
 dependency_overrides:
-  record_platform_interface: ^1.2.0
+  record_platform_interface: 1.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  flutter_launcher_icons: ^0.14.4
-
-flutter_launcher_icons:
-  android: "launcher_icon"
-  ios: false
-  image_path: "assets/icon/app_icon.png"
-  min_sdk_android: 21
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon/app_icon.png"
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/
-    - assets/icon/
