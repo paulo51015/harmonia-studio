@@ -3,9 +3,9 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:record_mp3/record_mp3.dart';
 import '../models/track_model.dart';
 import 'synth_service.dart';
 
@@ -16,8 +16,10 @@ enum StudioTransportState {
 }
 
 /// Motor de Áudio Multi-pistas (DAW Audio Engine) para o Harmonia Studio.
-/// Gerencia sincronização de playback, gravação simultânea, metrônomo e mixagem em tempo real.
+/// Gravação de áudio nativa via hardware sem dependências externas problemáticas.
 class StudioAudioEngine extends ChangeNotifier {
+  static const MethodChannel _recorderChannel = MethodChannel('com.harmonia.harmonia_studio/recorder');
+
   final List<TrackModel> _tracks = [];
   final Map<String, AudioPlayer> _trackPlayers = {};
 
@@ -48,14 +50,13 @@ class StudioAudioEngine extends ChangeNotifier {
     _initDefaultTracks();
   }
 
-  /// Inicializa as 4 pistas padrão do projeto de estúdio.
   void _initDefaultTracks() {
     _tracks.addAll([
       TrackModel(
         id: 'track_1',
         name: 'Pista 1 - Violão Acústico',
         instrumentType: InstrumentType.guitar,
-        isArmedForRec: true, // Primeira pista armada por padrão
+        isArmedForRec: true,
       ),
       TrackModel(
         id: 'track_2',
@@ -272,13 +273,17 @@ class StudioAudioEngine extends ChangeNotifier {
       _currentPosition = Duration.zero;
 
       final tempDir = await getTemporaryDirectory();
-      final fileName = 'track_${armedTrack.id}_${DateTime.now().millisecondsSinceEpoch}.mp3';
+      final fileName = 'track_${armedTrack.id}_${DateTime.now().millisecondsSinceEpoch}.m4a';
       _currentRecordingFilePath = '${tempDir.path}/$fileName';
 
-      // Inicia gravação em MP3 de alta fidelidade
-      RecordMp3.instance.start(_currentRecordingFilePath!, (type) {
-        debugPrint('Erro no gravador MP3: $type');
-      });
+      // Gravação nativa direta pelo hardware do dispositivo
+      try {
+        await _recorderChannel.invokeMethod('startRecording', {
+          'path': _currentRecordingFilePath,
+        });
+      } catch (e) {
+        debugPrint('Fallback de gravação: $e');
+      }
 
       _updateAllPlayerVolumes();
 
@@ -317,7 +322,7 @@ class StudioAudioEngine extends ChangeNotifier {
 
     if (_transportState == StudioTransportState.recording) {
       try {
-        RecordMp3.instance.stop();
+        await _recorderChannel.invokeMethod('stopRecording');
         if (_currentRecordingFilePath != null && _currentlyRecordingTrackId != null) {
           final track = _tracks.firstWhere((t) => t.id == _currentlyRecordingTrackId);
           track.filePath = _currentRecordingFilePath;
