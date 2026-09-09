@@ -528,23 +528,9 @@ Criado com Harmonia Studio AI (Suno Engine)
           children: [
             Icon(Icons.auto_awesome, color: AppTheme.cyan),
             SizedBox(width: 8),
-            Text('Compositor IA (Suno Engine)'),
+            Text('Compositor IA'),
           ],
         ),
-        actions: [
-          Row(
-            children: [
-              const Icon(Icons.music_note, size: 16, color: AppTheme.textSecondary),
-              const SizedBox(width: 4),
-              const Text('Instrumental', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-              Switch(
-                value: _isInstrumental,
-                activeColor: AppTheme.cyan,
-                onChanged: (v) => setState(() => _isInstrumental = v),
-              ),
-            ],
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -613,6 +599,49 @@ Criado com Harmonia Studio AI (Suno Engine)
                         ),
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Seletor Claro: Com Voz Cantada vs Apenas Instrumental
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: !_isInstrumental ? AppTheme.cyan.withOpacity(0.4) : AppTheme.dividerColor,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    !_isInstrumental ? Icons.record_voice_over : Icons.music_note,
+                    color: !_isInstrumental ? AppTheme.cyan : AppTheme.textSecondary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          !_isInstrumental ? 'Música com Voz Cantada & Letra' : 'Apenas Instrumental (Sem Voz)',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          !_isInstrumental ? 'Sintetiza melodia vocal em Português' : 'Gera apenas o playback instrumental',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: !_isInstrumental,
+                    activeColor: AppTheme.cyan,
+                    onChanged: (hasVoice) => setState(() => _isInstrumental = !hasVoice),
                   ),
                 ],
               ),
