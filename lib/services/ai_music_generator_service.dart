@@ -7,99 +7,208 @@ import '../models/track_model.dart';
 import 'studio_audio_engine.dart';
 import 'synth_service.dart';
 
-/// Motor Inteligente de Composição Musical com Suporte Especializado a Estilos (Gospel, Sertanejo, Romântica, MPB, Pop, Rock, etc.)
+/// Motor Inteligente de Composição Musical Avançado estilo Suno AI.
+/// Suporta Modo Simples, Modo Personalizado (Custom Mode), Geração Dupla de Variações (A/B),
+/// Extensor de Canção (Extend Clip), Geração de Letras com Tags Estruturais e Mixagem de Stems.
 class AiMusicGeneratorService {
   static final AiMusicGeneratorService _instance = AiMusicGeneratorService._internal();
   factory AiMusicGeneratorService() => _instance;
   AiMusicGeneratorService._internal();
 
-  /// Analisa o prompt e parâmetros para compor uma nova música e melodia completas.
+  /// Compõe a canção com geração dupla (Versão 1 e Versão 2) a partir dos parâmetros fornecidos.
   Future<AiSongModel> generateSongFromPrompt({
     required String prompt,
+    String? customTitle,
+    String? customLyrics,
     String? selectedGenre,
     String? selectedMood,
     String? selectedKey,
+    String? selectedVocalStyle,
+    bool isInstrumental = false,
     int? customBpm,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.delayed(const Duration(milliseconds: 1400));
 
     final cleanPrompt = prompt.toLowerCase();
 
     // 1. Detecção e Priorização de Gêneros Específicos
     String genre = selectedGenre ?? 'Gospel / Louvor';
-    if (cleanPrompt.contains('gospel') || cleanPrompt.contains('louvor') || cleanPrompt.contains('adoração') || cleanPrompt.contains('deus') || cleanPrompt.contains('igreja')) {
+    if (cleanPrompt.contains('gospel') || cleanPrompt.contains('louvor') || cleanPrompt.contains('adoração') || cleanPrompt.contains('deus') || cleanPrompt.contains('igreja') || cleanPrompt.contains('fé')) {
       genre = 'Gospel / Louvor';
-    } else if (cleanPrompt.contains('sertanej') || cleanPrompt.contains('modão') || cleanPrompt.contains('sofrência') || cleanPrompt.contains('viola') || cleanPrompt.contains('rodeio')) {
+    } else if (cleanPrompt.contains('sertanej') || cleanPrompt.contains('modão') || cleanPrompt.contains('sofrência') || cleanPrompt.contains('viola') || cleanPrompt.contains('rodeio') || cleanPrompt.contains('boteco')) {
       genre = 'Sertanejo';
-    } else if (cleanPrompt.contains('romântic') || cleanPrompt.contains('amor') || cleanPrompt.contains('apaixonad') || cleanPrompt.contains('balada') || cleanPrompt.contains('coração')) {
+    } else if (cleanPrompt.contains('romântic') || cleanPrompt.contains('amor') || cleanPrompt.contains('apaixonad') || cleanPrompt.contains('balada') || cleanPrompt.contains('coração') || cleanPrompt.contains('declaração')) {
       genre = 'Romântica / Balada';
-    } else if (cleanPrompt.contains('forró') || cleanPrompt.contains('piseiro') || cleanPrompt.contains('sanfona') || cleanPrompt.contains('nordest')) {
+    } else if (cleanPrompt.contains('forró') || cleanPrompt.contains('piseiro') || cleanPrompt.contains('sanfona') || cleanPrompt.contains('nordest') || cleanPrompt.contains('arrasta')) {
       genre = 'Forró / Piseiro';
-    } else if (cleanPrompt.contains('mpb') || cleanPrompt.contains('violão') || cleanPrompt.contains('acústico') || cleanPrompt.contains('bossa') || cleanPrompt.contains('praia')) {
+    } else if (cleanPrompt.contains('mpb') || cleanPrompt.contains('violão') || cleanPrompt.contains('acústico') || cleanPrompt.contains('bossa') || cleanPrompt.contains('praia') || cleanPrompt.contains('brasil')) {
       genre = 'Acústico / MPB';
-    } else if (cleanPrompt.contains('rock') || cleanPrompt.contains('guitarra') || cleanPrompt.contains('riff')) {
+    } else if (cleanPrompt.contains('rock') || cleanPrompt.contains('guitarra') || cleanPrompt.contains('riff') || cleanPrompt.contains('pesado')) {
       genre = 'Rock / Pop Rock';
-    } else if (cleanPrompt.contains('lo-fi') || cleanPrompt.contains('chill') || cleanPrompt.contains('estudo')) {
+    } else if (cleanPrompt.contains('lo-fi') || cleanPrompt.contains('chill') || cleanPrompt.contains('estudo') || cleanPrompt.contains('relax')) {
       genre = 'Lo-Fi Chill';
     }
 
     // 2. Detecção de Clima / Mood
-    String mood = selectedMood ?? 'Inspirador';
+    String mood = selectedMood ?? 'Inspirador / Emocionante';
     if (cleanPrompt.contains('triste') || cleanPrompt.contains('melancol') || cleanPrompt.contains('saudade') || cleanPrompt.contains('sofrimento')) {
-      mood = 'Melancólico';
-    } else if (cleanPrompt.contains('animad') || cleanPrompt.contains('festa') || cleanPrompt.contains('dança') || cleanPrompt.contains('alegre')) {
+      mood = 'Melancólico & Saudade';
+    } else if (cleanPrompt.contains('animad') || cleanPrompt.contains('festa') || cleanPrompt.contains('dança') || cleanPrompt.contains('alegre') || cleanPrompt.contains('balanço')) {
       mood = 'Alegre & Festivo';
-    } else if (cleanPrompt.contains('emocion') || cleanPrompt.contains('inspir') || cleanPrompt.contains('fé') || cleanPrompt.contains('profund')) {
+    } else if (cleanPrompt.contains('emocion') || cleanPrompt.contains('inspir') || cleanPrompt.contains('profund')) {
       mood = 'Inspirador / Emocionante';
-    } else if (cleanPrompt.contains('calm') || cleanPrompt.contains('suave') || cleanPrompt.contains('paz') || cleanPrompt.contains('relax')) {
+    } else if (cleanPrompt.contains('românt') || cleanPrompt.contains('paixão') || cleanPrompt.contains('carinho')) {
+      mood = 'Romântico & Apaixonado';
+    } else if (cleanPrompt.contains('calm') || cleanPrompt.contains('suave') || cleanPrompt.contains('paz')) {
       mood = 'Relaxante & Suave';
     }
 
     // 3. Tom Musical & Andamento (BPM)
-    String musicalKey = selectedKey ?? (mood == 'Melancólico' ? 'Am (Lá Menor)' : 'G (Sol Maior)');
+    String musicalKey = selectedKey ?? (mood.contains('Melancólico') ? 'Am (Lá Menor)' : 'G (Sol Maior)');
     int bpm = customBpm ?? _getSuggestedBpm(genre, mood);
 
-    // 4. Progressão Harmônica de Acordes
-    final chords = _generateChordProgression(genre, mood);
+    // 4. Estilo Vocal
+    String vocalStyle = isInstrumental ? 'Instrumental Puro' : (selectedVocalStyle ?? _getSuggestedVocal(genre));
 
-    // 5. Linha Melódica (Notas musicais com durações rítmicas)
-    final melody = _generateMelodyNotes(chords, bpm, genre);
+    // 5. Letra (Personalizada ou Gerada com Tags Suno)
+    final lyrics = (customLyrics != null && customLyrics.trim().isNotEmpty)
+        ? customLyrics.trim()
+        : _generateLyrics(prompt, genre, mood, isInstrumental);
 
-    // 6. Estrutura da Canção
-    final structure = _generateSongStructure(chords, genre);
+    final title = (customTitle != null && customTitle.trim().isNotEmpty)
+        ? customTitle.trim()
+        : _generateSongTitle(prompt, genre);
 
-    // 7. Letra Sugerida Temática
-    final lyrics = _generateLyrics(prompt, genre, mood);
+    // 6. GERAÇÃO DA VERSÃO 1 (Arranjo Principal)
+    final chordsV1 = _generateChordProgression(genre, mood, isAlternative: false);
+    final melodyV1 = _generateMelodyNotes(chordsV1, bpm, genre, isAlternative: false);
+    final structureV1 = _generateSongStructure(chordsV1, genre, lyrics);
 
-    final title = _generateSongTitle(prompt, genre);
+    // 7. GERAÇÃO DA VERSÃO 2 (Arranjo Alternativo / Acústico)
+    final chordsV2 = _generateChordProgression(genre, mood, isAlternative: true);
+    final melodyV2 = _generateMelodyNotes(chordsV2, bpm - 4, genre, isAlternative: true);
+    final structureV2 = _generateSongStructure(chordsV2, genre, lyrics);
 
-    return AiSongModel(
-      id: 'ai_song_${DateTime.now().millisecondsSinceEpoch}',
+    final versaoB = AiSongModel(
+      id: 'ai_song_${DateTime.now().millisecondsSinceEpoch}_v2',
+      title: '$title (Versão 2 - Acústica / Variação)',
+      prompt: prompt,
+      genre: genre,
+      mood: mood,
+      musicalKey: musicalKey,
+      bpm: bpm - 4,
+      isInstrumental: isInstrumental,
+      vocalStyle: vocalStyle,
+      chords: chordsV2,
+      melody: melodyV2,
+      structure: structureV2,
+      lyrics: lyrics,
+      variationLabel: 'Versão 2 (Arranjo Alternativo)',
+      durationSeconds: 135,
+    );
+
+    final versaoA = AiSongModel(
+      id: 'ai_song_${DateTime.now().millisecondsSinceEpoch}_v1',
       title: title,
       prompt: prompt,
       genre: genre,
       mood: mood,
       musicalKey: musicalKey,
       bpm: bpm,
-      chords: chords,
-      melody: melody,
-      structure: structure,
+      isInstrumental: isInstrumental,
+      vocalStyle: vocalStyle,
+      chords: chordsV1,
+      melody: melodyV1,
+      structure: structureV1,
       lyrics: lyrics,
+      variationLabel: 'Versão 1 (Arranjo Principal)',
+      variations: [versaoB],
+      durationSeconds: 140,
+    );
+
+    return versaoA;
+  }
+
+  /// Gera uma letra poética completa estruturada em tags estilo Suno AI.
+  String generateLyricsOnly({
+    required String themePrompt,
+    required String genre,
+    required String mood,
+  }) {
+    return _generateLyrics(themePrompt, genre, mood, false);
+  }
+
+  /// Estende uma canção adicionando novas seções (Solo, Ponte, Refrão Final, Outro).
+  Future<AiSongModel> extendSong({
+    required AiSongModel originalSong,
+    required String extensionType, // 'Ponte & Refrão Final', 'Solo Instrumental & Refrão', 'Finalização / Outro'
+    String? additionalLyrics,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 1000));
+
+    final newChords = List<String>.from(originalSong.chords);
+    final newMelody = List<MelodyNote>.from(originalSong.melody);
+    final newStructure = List<SongSection>.from(originalSong.structure);
+
+    String addedLyrics = '';
+
+    if (extensionType.contains('Solo')) {
+      newStructure.add(
+        SongSection(
+          name: '[Solo Instrumental Expandido]',
+          chords: [newChords[1], newChords[2], newChords[3], newChords[0]],
+          description: 'Solo expressivo com modulação e dinâmica crescente.',
+        ),
+      );
+      // Adiciona notas do solo
+      final soloNotes = _generateMelodyNotes([newChords[1], newChords[2]], originalSong.bpm, originalSong.genre, isAlternative: true);
+      newMelody.addAll(soloNotes);
+      addedLyrics += '\n\n[Solo Instrumental]';
+    } else if (extensionType.contains('Ponte')) {
+      newStructure.add(
+        SongSection(
+          name: '[Ponte / Bridge]',
+          chords: [newChords[2], newChords[1], newChords[3]],
+          description: 'Ponte emocional preparando para o clímax da canção.',
+        ),
+      );
+      addedLyrics += additionalLyrics ?? '\n\n[Ponte / Bridge]\nE quando tudo parece parar,\nA Tua voz vem me renovar!\nNada pode esse amor apagar!';
+    } else {
+      newStructure.add(
+        SongSection(
+          name: '[Final / Outro Estendido]',
+          chords: [newChords[0]],
+          description: 'Sustentação harmônica em fade-out.',
+        ),
+      );
+      addedLyrics += '\n\n[Final]\nDeixa o som soar... até o amanhecer.';
+    }
+
+    final fullLyrics = '${originalSong.lyrics}$addedLyrics';
+
+    return originalSong.copyWith(
+      id: 'ai_song_ext_${DateTime.now().millisecondsSinceEpoch}',
+      title: '${originalSong.title} (Estendida)',
+      chords: newChords,
+      melody: newMelody,
+      structure: newStructure,
+      lyrics: fullLyrics,
+      durationSeconds: originalSong.durationSeconds + 45,
     );
   }
 
   int _getSuggestedBpm(String genre, String mood) {
     switch (genre) {
       case 'Gospel / Louvor':
-        return 72; // Andamento de adoração solene e emocionante
+        return 72;
       case 'Sertanejo':
-        return 118; // Sertanejo moderno / balanço
+        return 118;
       case 'Romântica / Balada':
-        return 68; // Balada lenta e expressiva
+        return 68;
       case 'Forró / Piseiro':
-        return 138; // Ritmo dançante e enérgico
+        return 138;
       case 'Acústico / MPB':
-        return 92; // Swing e balanço acústico
+        return 92;
       case 'Rock / Pop Rock':
         return 132;
       case 'Lo-Fi Chill':
@@ -109,32 +218,74 @@ class AiMusicGeneratorService {
     }
   }
 
-  List<String> _generateChordProgression(String genre, String mood) {
+  String _getSuggestedVocal(String genre) {
     switch (genre) {
       case 'Gospel / Louvor':
-        return ['C', 'G', 'Am', 'F']; // Clássica progressão de louvor I - V - vi - IV
+        return 'Coral / Dueto Gospel';
       case 'Sertanejo':
-        return ['G', 'D', 'Em', 'C']; // Progressão sertaneja romântica de violão
+        return 'Dupla Sertaneja';
       case 'Romântica / Balada':
-        return ['C', 'Em', 'F', 'G']; // Balada apaixonada I - iii - IV - V
+        return 'Voz Romântica & Pop';
       case 'Forró / Piseiro':
-        return ['Am', 'F', 'C', 'G']; // Cadência marcante de forró
+        return 'Voz Masculina Encorpada';
       case 'Acústico / MPB':
-        return ['C', 'Am', 'Dm', 'G']; // Cadência tradicional I - vi - ii - V
+        return 'Voz Feminina Suave';
       case 'Rock / Pop Rock':
-        return ['G', 'C', 'Em', 'D'];
+        return 'Voz Masculina Encorpada';
       case 'Lo-Fi Chill':
-        return ['Dm', 'G', 'C', 'Am'];
+        return 'Instrumental Puro';
       default:
-        return ['C', 'G', 'Am', 'F'];
+        return 'Voz Feminina Suave';
     }
   }
 
-  List<MelodyNote> _generateMelodyNotes(List<String> chords, int bpm, String genre) {
+  List<String> _generateChordProgression(String genre, String mood, {bool isAlternative = false}) {
+    if (!isAlternative) {
+      switch (genre) {
+        case 'Gospel / Louvor':
+          return ['C', 'G', 'Am', 'F'];
+        case 'Sertanejo':
+          return ['G', 'D', 'Em', 'C'];
+        case 'Romântica / Balada':
+          return ['C', 'Em', 'F', 'G'];
+        case 'Forró / Piseiro':
+          return ['Am', 'F', 'C', 'G'];
+        case 'Acústico / MPB':
+          return ['C', 'Am', 'Dm', 'G'];
+        case 'Rock / Pop Rock':
+          return ['G', 'C', 'Em', 'D'];
+        case 'Lo-Fi Chill':
+          return ['Dm', 'G', 'C', 'Am'];
+        default:
+          return ['C', 'G', 'Am', 'F'];
+      }
+    } else {
+      // Variação harmônica alternativa
+      switch (genre) {
+        case 'Gospel / Louvor':
+          return ['F', 'G', 'Em', 'Am'];
+        case 'Sertanejo':
+          return ['C', 'G', 'D', 'Em'];
+        case 'Romântica / Balada':
+          return ['Am', 'F', 'C', 'Em'];
+        case 'Forró / Piseiro':
+          return ['Dm', 'Am', 'E', 'Am'];
+        case 'Acústico / MPB':
+          return ['F', 'Em', 'Dm', 'C'];
+        case 'Rock / Pop Rock':
+          return ['Em', 'C', 'G', 'D'];
+        case 'Lo-Fi Chill':
+          return ['F', 'G', 'Em', 'Am'];
+        default:
+          return ['G', 'Em', 'C', 'D'];
+      }
+    }
+  }
+
+  List<MelodyNote> _generateMelodyNotes(List<String> chords, int bpm, String genre, {bool isAlternative = false}) {
     final List<MelodyNote> notes = [];
 
-    // Mapeamento melódico temático
-    final Map<String, List<String>> chordMelodyMap = {
+    final Map<String, List<String>> chordMelodyMapV1 = {
       'C': ['E4', 'G4', 'C5', 'G4', 'E4'],
       'G': ['D4', 'G4', 'B4', 'D5', 'B4'],
       'Am': ['C4', 'E4', 'A4', 'C5', 'E4'],
@@ -142,10 +293,24 @@ class AiMusicGeneratorService {
       'Em': ['E4', 'G4', 'B4', 'E5', 'B4'],
       'Dm': ['D4', 'F4', 'A4', 'D5', 'F4'],
       'D': ['D4', 'F#4', 'A4', 'D5', 'F#4'],
+      'E': ['E4', 'G#4', 'B4', 'E5', 'G#4'],
     };
 
+    final Map<String, List<String>> chordMelodyMapV2 = {
+      'C': ['G4', 'E4', 'D4', 'C4', 'E4'],
+      'G': ['B4', 'G4', 'D4', 'B4', 'G4'],
+      'Am': ['E4', 'C4', 'A3', 'C4', 'E4'],
+      'F': ['C5', 'A4', 'F4', 'A4', 'C5'],
+      'Em': ['B4', 'G4', 'E4', 'G4', 'B4'],
+      'Dm': ['A4', 'F4', 'D4', 'F4', 'A4'],
+      'D': ['A4', 'F#4', 'D4', 'F#4', 'A4'],
+      'E': ['B4', 'G#4', 'E4', 'G#4', 'B4'],
+    };
+
+    final activeMap = isAlternative ? chordMelodyMapV2 : chordMelodyMapV1;
+
     for (final chord in chords) {
-      final pattern = chordMelodyMap[chord] ?? ['C4', 'E4', 'G4', 'C5'];
+      final pattern = activeMap[chord] ?? ['C4', 'E4', 'G4', 'C5'];
       for (int i = 0; i < pattern.length; i++) {
         final noteStr = pattern[i];
         notes.add(
@@ -161,47 +326,63 @@ class AiMusicGeneratorService {
     return notes;
   }
 
-  List<SongSection> _generateSongStructure(List<String> chords, String genre) {
+  List<SongSection> _generateSongStructure(List<String> chords, String genre, String lyrics) {
     return [
       SongSection(
-        name: 'Introdução (Intro)',
+        name: '[Introdução / Intro]',
         chords: [chords[0], chords[1]],
-        description: 'Frase instrumental suave estabelecendo o estilo $genre.',
+        description: 'Frase instrumental imersiva no estilo $genre.',
       ),
       SongSection(
-        name: 'Verso 1',
+        name: '[Verso 1]',
         chords: chords,
-        description: 'Primeira estrofe com a narrativa principal e arranjo de base.',
+        description: 'Primeira estrofe com base harmônica e narrativa.',
       ),
       SongSection(
-        name: 'Pré-Refrão',
+        name: '[Pré-Refrão]',
         chords: [chords[1], chords[2]],
-        description: 'Crescimento de dinâmica preparando para o refrão.',
+        description: 'Crescimento melódico e preparação para o clímax.',
       ),
       SongSection(
-        name: 'Refrão (Chorus)',
+        name: '[Refrão / Chorus]',
         chords: [chords[2], chords[3], chords[0], chords[1]],
         description: 'Ponto alto e marcante da canção com grande intensidade.',
       ),
       SongSection(
-        name: 'Verso 2',
+        name: '[Verso 2]',
         chords: chords,
-        description: 'Segunda estrofe com continuação da mensagem e harmonia.',
+        description: 'Segunda estrofe dando continuidade à canção.',
       ),
       SongSection(
-        name: 'Solo Instrumental / Ponte',
+        name: '[Solo Instrumental / Ponte]',
         chords: [chords[1], chords[2], chords[3], chords[0]],
-        description: 'Solo expressivo característico do gênero $genre.',
+        description: 'Expressão instrumental característica do estilo $genre.',
       ),
       SongSection(
-        name: 'Final (Outro)',
+        name: '[Final / Outro]',
         chords: [chords[0]],
         description: 'Desaceleração e sustentação do acorde final.',
       ),
     ];
   }
 
-  String _generateLyrics(String prompt, String genre, String mood) {
+  String _generateLyrics(String prompt, String genre, String mood, bool isInstrumental) {
+    if (isInstrumental) {
+      return '''
+[Introdução Instrumental]
+(Arranjo instrumental imersivo de piano e violão)
+
+[Tema Principal]
+(Melodia principal conduzida por solos acústicos e sintetizadores)
+
+[Ponte Instrumental]
+(Variação harmônica e dinâmica crescente)
+
+[Final Instrumental]
+(Sustentação dos acordes e fade out suave)
+''';
+    }
+
     if (genre == 'Gospel / Louvor') {
       return '''
 [Verso 1]
@@ -226,7 +407,15 @@ Tua fidelidade permanece fiel.
 Harmonia divina em cada oração,
 Um louvor que transborda no coração.
 
-[Final]
+[Ponte / Bridge]
+Mesmo nas noites escuras,
+Tua presença me sustenta e me cura!
+
+[Refrão Final]
+Te adorarei com todo o meu viver,
+Para sempre Teu amor irei cantar!
+
+[Final / Outro]
 Aleluia... Teu amor não tem fim.
 ''';
     }
@@ -241,7 +430,7 @@ Lembrando do teu abraço que ainda me envolve.
 
 [Pré-Refrão]
 O vento sopra trazendo a recordação,
-O compasso certinho dessa paixão!
+No compasso certinho dessa paixão!
 
 [Refrão]
 Ah, esse som de viola que toca na alma,
@@ -251,11 +440,18 @@ Não tem outro lugar onde eu queira ir!
 
 [Verso 2]
 A poeira da estrada levanta no ar,
-Mas nada me impede de te encontrar.
+Mas nada no mundo me impede de te encontrar.
 No som sertanejo da nossa canção,
-Bate mais forte esse meu coração!
+Bate acelerado esse coração!
 
-[Final]
+[Solo de Viola]
+(Solo marcante de viola caipira e violão)
+
+[Refrão Final]
+Ah, esse som de viola que toca na alma,
+Não tem outro lugar onde eu queira ir!
+
+[Final / Outro]
 Toca viola... até clarear.
 ''';
     }
@@ -284,7 +480,7 @@ Guardada pra sempre na minha memória.
 Um acorde perfeito que não tem fim,
 O destino escreveu você pra mim.
 
-[Final]
+[Final / Outro]
 Pra sempre você e eu...
 ''';
     }
@@ -302,6 +498,9 @@ Vem dançar agarradinho até o sol raiar,
 No compasso do forró pra gente se alegrar!
 Roda pra lá, puxa pra cá,
 Esse piseiro ninguém vai segurar!
+
+[Final / Outro]
+É o forró do Harmonia Studio!
 ''';
     }
 
@@ -324,7 +523,7 @@ Os acordes se encontram num doce acordeão,
 Transformando ideias em pura vibração.
 Harmonia Studio em cada criação!
 
-[Final]
+[Final / Outro]
 Deixa o som fluir... até o último acorde sumir.
 ''';
   }
@@ -356,7 +555,7 @@ Deixa o som fluir... até o último acorde sumir.
       engine.setBpm(song.bpm);
 
       if (engine.tracks.isNotEmpty) {
-        engine.tracks[0].name = 'Pista 1 - Base (${song.genre})';
+        engine.tracks[0].name = 'Pista 1 - Base Harmônica (${song.genre})';
         engine.tracks[0].filePath = chordsFilePath;
         engine.tracks[0].duration = Duration(seconds: (song.chords.length * 4 * 60 / song.bpm).round());
         engine.tracks[0].waveformSamples = List.generate(40, (i) => 0.4 + (i % 5) * 0.1);
@@ -364,7 +563,7 @@ Deixa o som fluir... até o último acorde sumir.
       }
 
       if (engine.tracks.length > 1) {
-        engine.tracks[1].name = 'Pista 2 - Melodia (${song.genre})';
+        engine.tracks[1].name = 'Pista 2 - Melodia / ${song.vocalStyle}';
         engine.tracks[1].filePath = melodyFilePath;
         engine.tracks[1].duration = Duration(seconds: (song.melody.length * 0.8 * 60 / song.bpm).round());
         engine.tracks[1].waveformSamples = List.generate(40, (i) => 0.3 + (i % 7) * 0.08);
@@ -372,7 +571,7 @@ Deixa o som fluir... até o último acorde sumir.
       }
 
       if (engine.tracks.length > 2) {
-        engine.tracks[2].name = 'Pista 3 - Sua Voz / Gravação';
+        engine.tracks[2].name = 'Pista 3 - Sua Voz / Microfone';
         engine.tracks[2].filePath = null;
         engine.tracks[2].isArmedForRec = true;
       }
