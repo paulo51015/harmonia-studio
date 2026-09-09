@@ -18,6 +18,7 @@ class AiSongModel {
   final List<AiSongModel> variations; // Versão A e Versão B
   final int durationSeconds;
   final String? audioFilePath; // Caminho do arquivo WAV completo master gravado no disco
+  final String? vocalAudioFilePath; // Caminho do arquivo de áudio vocal com voz cantada em português
 
   const AiSongModel({
     required this.id,
@@ -38,6 +39,7 @@ class AiSongModel {
     this.variations = const [],
     this.durationSeconds = 120,
     this.audioFilePath,
+    this.vocalAudioFilePath,
   });
 
   AiSongModel copyWith({
@@ -59,6 +61,7 @@ class AiSongModel {
     List<AiSongModel>? variations,
     int? durationSeconds,
     String? audioFilePath,
+    String? vocalAudioFilePath,
   }) {
     return AiSongModel(
       id: id ?? this.id,
@@ -79,6 +82,7 @@ class AiSongModel {
       variations: variations ?? this.variations,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       audioFilePath: audioFilePath ?? this.audioFilePath,
+      vocalAudioFilePath: vocalAudioFilePath ?? this.vocalAudioFilePath,
     );
   }
 }

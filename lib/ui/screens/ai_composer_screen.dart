@@ -301,6 +301,9 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
       if (songV1.audioFilePath != null) {
         await _audioPlayer.setSource(DeviceFileSource(songV1.audioFilePath!));
       }
+      if (songV1.vocalAudioFilePath != null) {
+        await _vocalAudioService.prepareVocalTrack(songV1.vocalAudioFilePath);
+      }
     } catch (e) {
       setState(() => _isGenerating = false);
       if (mounted) {
@@ -320,6 +323,10 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
       await _vocalAudioService.pause();
     } else {
       _vocalAudioService.configureVocalStyle(song.vocalStyle);
+      if (song.vocalAudioFilePath != null) {
+        await _vocalAudioService.prepareVocalTrack(song.vocalAudioFilePath);
+        await _vocalAudioService.play();
+      }
       await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
       if (song.timedLyrics.isNotEmpty) {
         _vocalAudioService.syncPlayback(_position, song.timedLyrics);
@@ -342,6 +349,10 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
       _vocalAudioService.configureVocalStyle(song!.vocalStyle);
       await _audioPlayer.setSource(DeviceFileSource(song.audioFilePath!));
       await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
+      if (song.vocalAudioFilePath != null) {
+        await _vocalAudioService.prepareVocalTrack(song.vocalAudioFilePath);
+        await _vocalAudioService.play();
+      }
     }
   }
 
@@ -361,10 +372,17 @@ ${song.lyrics}
 ✨ Criado com Harmonia Studio AI (Suno + Leonardo AI Engine)
 ''';
 
-    if (song.audioFilePath != null) {
-      final file = XFile(song.audioFilePath!);
+    final List<XFile> filesToShare = [];
+    if (song.vocalAudioFilePath != null && File(song.vocalAudioFilePath!).existsSync()) {
+      filesToShare.add(XFile(song.vocalAudioFilePath!));
+    }
+    if (song.audioFilePath != null && File(song.audioFilePath!).existsSync()) {
+      filesToShare.add(XFile(song.audioFilePath!));
+    }
+
+    if (filesToShare.isNotEmpty) {
       await Share.shareXFiles(
-        [file],
+        filesToShare,
         text: shareText,
         subject: 'Música Criada - ${song.title}',
       );
@@ -1080,6 +1098,7 @@ Criado com Harmonia Studio AI (Suno + Leonardo AI Engine)
                               onChanged: (val) async {
                                 final newPos = Duration(seconds: val.round());
                                 await _audioPlayer.seek(newPos);
+                                await _vocalAudioService.seek(newPos);
                               },
                             ),
                             Padding(
@@ -1216,8 +1235,13 @@ Criado com Harmonia Studio AI (Suno + Leonardo AI Engine)
                                     onTap: () async {
                                       final targetPos = Duration(milliseconds: (line.timestampSeconds * 1000).toInt());
                                       await _audioPlayer.seek(targetPos);
+                                      await _vocalAudioService.seek(targetPos);
                                       if (_playerState != PlayerState.playing) {
                                         _vocalAudioService.configureVocalStyle(song.vocalStyle);
+                                        if (song.vocalAudioFilePath != null) {
+                                          await _vocalAudioService.prepareVocalTrack(song.vocalAudioFilePath);
+                                          await _vocalAudioService.play();
+                                        }
                                         await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
                                       }
                                     },

@@ -97,10 +97,19 @@ class AiMusicGeneratorService {
 
     List<LyricLine> timedLyricsV1 = [];
     List<LyricLine> timedLyricsV2 = [];
+    String? vocalAudioPathV1;
+    String? vocalAudioPathV2;
 
     if (!isInstrumental) {
       timedLyricsV1 = vocalService.parseLyricsToTimedLines(lyrics, bpm);
       timedLyricsV2 = vocalService.parseLyricsToTimedLines(lyrics, bpm - 4);
+      // Gera a faixa vocal cantada em Português com as palavras exatas do prompt/letra
+      vocalAudioPathV1 = await vocalService.generateVocalAudioTrack(
+        lyrics: lyrics,
+        bpm: bpm,
+        vocalStyle: vocalStyle,
+      );
+      vocalAudioPathV2 = vocalAudioPathV1;
     }
 
     // 9. RENDERIZAÇÃO DOS ARQUIVOS MASTER DE ÁUDIO WAV
@@ -150,6 +159,7 @@ class AiMusicGeneratorService {
       variationLabel: 'Versão 2 (Arranjo Alternativo)',
       durationSeconds: 135,
       audioFilePath: audioPathV2,
+      vocalAudioFilePath: vocalAudioPathV2,
     );
 
     final versaoA = AiSongModel(
@@ -171,6 +181,7 @@ class AiMusicGeneratorService {
       variations: [versaoB],
       durationSeconds: 140,
       audioFilePath: audioPathV1,
+      vocalAudioFilePath: vocalAudioPathV1,
     );
 
     return versaoA;
@@ -247,6 +258,14 @@ class AiMusicGeneratorService {
 
     final vocalService = VocalAudioService();
     final timedLyrics = vocalService.parseLyricsToTimedLines(fullLyrics, originalSong.bpm);
+    String? newVocalAudioPath;
+    if (!originalSong.isInstrumental) {
+      newVocalAudioPath = await vocalService.generateVocalAudioTrack(
+        lyrics: fullLyrics,
+        bpm: originalSong.bpm,
+        vocalStyle: originalSong.vocalStyle,
+      );
+    }
 
     return originalSong.copyWith(
       id: 'ai_song_ext_$timestamp',
@@ -258,6 +277,7 @@ class AiMusicGeneratorService {
       timedLyrics: timedLyrics,
       durationSeconds: originalSong.durationSeconds + 45,
       audioFilePath: newAudioPath,
+      vocalAudioFilePath: newVocalAudioPath ?? originalSong.vocalAudioFilePath,
     );
   }
 
