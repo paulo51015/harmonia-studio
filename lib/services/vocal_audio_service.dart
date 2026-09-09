@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/ai_song_model.dart';
 
@@ -14,10 +15,15 @@ class VocalAudioService {
   factory VocalAudioService() => _instance;
   VocalAudioService._internal();
 
+  static const MethodChannel _ttsChannel = MethodChannel('com.harmonia.harmonia_studio/vocal_tts');
+
   final AudioPlayer _vocalPlayer = AudioPlayer();
   double _vocalVolume = 1.0;
   bool _isMuted = false;
   String? _loadedAudioPath;
+
+  double _vocalPitch = 1.05;
+  double _speechRate = 0.95;
 
   final StreamController<int?> _activeLineController = StreamController<int?>.broadcast();
   Stream<int?> get activeLineStream => _activeLineController.stream;
@@ -31,7 +37,21 @@ class VocalAudioService {
     _vocalPlayer.setReleaseMode(ReleaseMode.stop);
   }
 
-  Future<void> configureVocalStyle(String vocalStyle) async {}
+  Future<void> configureVocalStyle(String vocalStyle) async {
+    if (vocalStyle.contains('Feminina')) {
+      _vocalPitch = 1.25;
+      _speechRate = 1.0;
+    } else if (vocalStyle.contains('Masculina')) {
+      _vocalPitch = 0.9;
+      _speechRate = 0.95;
+    } else if (vocalStyle.contains('Sertaneja') || vocalStyle.contains('Dueto')) {
+      _vocalPitch = 1.1;
+      _speechRate = 1.05;
+    } else {
+      _vocalPitch = 1.05;
+      _speechRate = 0.98;
+    }
+  }
 
   void setVocalVolume(double volume) {
     _vocalVolume = volume.clamp(0.0, 1.0);
@@ -43,25 +63,28 @@ class VocalAudioService {
   void toggleMute() {
     _isMuted = !_isMuted;
     _vocalPlayer.setVolume(_isMuted ? 0.0 : _vocalVolume);
+    if (_isMuted) {
+      _ttsChannel.invokeMethod('stop').catchError((_) => null);
+    }
   }
 
   bool get isMuted => _isMuted;
   double get vocalVolume => _vocalVolume;
 
   /// Gera a faixa de áudio vocal com a voz cantando as palavras em Português (pt-BR).
-  /// Cada estrofe/frase da letra é convertida em áudio natural de alta qualidade e compilada em uma faixa contínua.
+  /// Combina síntese local offline do Android com fallback online de alta resolução.
   Future<String?> generateVocalAudioTrack({
     required String lyrics,
     required int bpm,
     required String vocalStyle,
   }) async {
+    await configureVocalStyle(vocalStyle);
     final lines = lyrics.split('\n');
     final List<String> textLinesToSynthesize = [];
 
     for (final rawLine in lines) {
       final line = rawLine.trim();
       if (line.isEmpty) continue;
-      // Pula seções e acordes entre colchetes ou parênteses
       if (line.startsWith('[') && line.endsWith(']')) continue;
       if (line.startsWith('(') && line.endsWith(')')) continue;
       textLinesToSynthesize.add(line);
@@ -69,14 +92,37 @@ class VocalAudioService {
 
     if (textLinesToSynthesize.isEmpty) return null;
 
+    final tempDir = await getTemporaryDirectory();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    // 1. Tenta sintetizar primeiro pelo motor nativo do Android (100% offline e confiável)
+    try {
+      final nativeWavPath = '${tempDir.path}/harmonia_vocal_$timestamp.wav';
+      final cleanCombinedText = textLinesToSynthesize.join('. ');
+      final bool? success = await _ttsChannel.invokeMethod<bool>('synthesizeToFile', {
+        'text': cleanCombinedText,
+        'path': nativeWavPath,
+        'pitch': _vocalPitch,
+        'rate': _speechRate,
+      });
+
+      if (success == true) {
+        final file = File(nativeWavPath);
+        if (await file.exists() && await file.length() > 100) {
+          _loadedAudioPath = nativeWavPath;
+          return nativeWavPath;
+        }
+      }
+    } catch (e) {
+      debugPrint('Aviso: síntese de arquivo nativo não disponível, usando fallback online: $e');
+    }
+
+    // 2. Fallback de síntese online caso o motor de gravação em arquivo local não tenha respondido
     final bytesBuilder = BytesBuilder();
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 6);
+    client.connectionTimeout = const Duration(seconds: 5);
 
     try {
-      final tempDir = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-
       for (int i = 0; i < textLinesToSynthesize.length; i++) {
         final lineText = textLinesToSynthesize[i];
         try {
@@ -85,7 +131,7 @@ class VocalAudioService {
           );
           final request = await client.getUrl(url);
           request.headers.set('User-Agent', 'Mozilla/5.0 (Linux; Android 14)');
-          final response = await request.close().timeout(const Duration(seconds: 5));
+          final response = await request.close().timeout(const Duration(seconds: 4));
 
           if (response.statusCode == 200) {
             final List<int> chunkBytes = [];
@@ -96,9 +142,7 @@ class VocalAudioService {
               bytesBuilder.add(chunkBytes);
             }
           }
-        } catch (e) {
-          debugPrint('Aviso ao sintetizar frase vocal "$lineText": $e');
-        }
+        } catch (_) {}
       }
 
       final combinedBytes = bytesBuilder.toBytes();
@@ -110,7 +154,7 @@ class VocalAudioService {
         return vocalFilePath;
       }
     } catch (e) {
-      debugPrint('Erro ao compilar faixa vocal IA: $e');
+      debugPrint('Erro ao compilar faixa vocal online: $e');
     } finally {
       client.close();
     }
@@ -140,6 +184,7 @@ class VocalAudioService {
     _currentActiveLineIndex = null;
     _activeLineController.add(null);
     try {
+      await _ttsChannel.invokeMethod('stop');
       await _vocalPlayer.pause();
     } catch (_) {}
   }
@@ -149,6 +194,7 @@ class VocalAudioService {
     _currentActiveLineIndex = null;
     _activeLineController.add(null);
     try {
+      await _ttsChannel.invokeMethod('stop');
       await _vocalPlayer.stop();
     } catch (_) {}
   }
@@ -156,6 +202,7 @@ class VocalAudioService {
   /// Ajusta o ponto no tempo da voz cantada
   Future<void> seek(Duration position) async {
     try {
+      await _ttsChannel.invokeMethod('stop');
       await _vocalPlayer.seek(position);
     } catch (_) {}
   }
@@ -166,7 +213,7 @@ class VocalAudioService {
     final List<LyricLine> timedLines = [];
 
     String currentSection = '[Introdução]';
-    double currentTimestamp = 3.5; // Começa após introdução instrumental
+    double currentTimestamp = 3.5;
     final double secondsPerBeat = 60.0 / bpm;
     final double phraseDuration = (secondsPerBeat * 4).clamp(2.8, 5.0);
 
@@ -203,6 +250,7 @@ class VocalAudioService {
   }
 
   /// Sincroniza e ilumina a frase de Karaokê correspondente ao timestamp exato da música
+  /// e canta a frase com voz nativa em tempo real.
   void syncPlayback(Duration position, List<LyricLine> lyrics) {
     _currentLyrics = lyrics;
     final currentSec = position.inMilliseconds / 1000.0;
@@ -223,7 +271,23 @@ class VocalAudioService {
     if (activeIndex != _currentActiveLineIndex) {
       _currentActiveLineIndex = activeIndex;
       _activeLineController.add(activeIndex);
+
+      // Canta a frase na voz nativa em tempo real sincronizada com o compasso da canção
+      if (activeIndex != null && !_isMuted && activeIndex < lyrics.length) {
+        final lineText = lyrics[activeIndex].text;
+        _speakNativeLine(lineText);
+      }
     }
+  }
+
+  Future<void> _speakNativeLine(String text) async {
+    try {
+      await _ttsChannel.invokeMethod('speak', {
+        'text': text,
+        'pitch': _vocalPitch,
+        'rate': _speechRate,
+      });
+    } catch (_) {}
   }
 
   void dispose() {
