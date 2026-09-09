@@ -168,7 +168,7 @@ class SynthService {
         drumSignal += hihatNoise * hihatEnv * 0.15;
       }
 
-      // 5. CAMADA DE MELODIA / VOCAL
+      // 5. CAMADA DE MELODIA / VOCAL EXPRESSIVO
       double melodySignal = 0.0;
       if (!isInstrumental) {
         // Encontra a nota ativa no tempo t
@@ -178,32 +178,33 @@ class SynthService {
           if (t >= noteStart && t < (noteStart + noteDur)) {
             final double tInNote = t - noteStart;
             final double freq = fullMelody[m].frequency;
-            // Vibrato expressivo (LFO 5Hz)
-            final double vibrato = 1.0 + 0.015 * math.sin(twoPi * 5.0 * tInNote);
+            // Vibrato expressivo (LFO 5.2Hz)
+            final double vibrato = 1.0 + 0.022 * math.sin(twoPi * 5.2 * tInNote);
             final double modulatedFreq = freq * vibrato;
 
-            // Envelope vocal suave
+            // Envelope vocal cantado (ataque e sustentação)
             double mEnv = 1.0;
-            if (tInNote < 0.04) {
-              mEnv = tInNote / 0.04;
-            } else if (tInNote > (noteDur - 0.05)) {
-              mEnv = (noteDur - tInNote) / 0.05;
+            if (tInNote < 0.03) {
+              mEnv = tInNote / 0.03;
+            } else if (tInNote > (noteDur - 0.04)) {
+              mEnv = (noteDur - tInNote) / 0.04;
             }
 
-            // Síntese de formantes vocais (Harmônicos ricos)
+            // Síntese de formantes vocais (Harmônicos ricos e ressonância de voz)
             final double h1 = math.sin(twoPi * modulatedFreq * t);
-            final double h2 = 0.45 * math.sin(twoPi * (modulatedFreq * 2) * t);
-            final double h3 = 0.25 * math.sin(twoPi * (modulatedFreq * 3) * t);
-            final double h4 = 0.10 * math.sin(twoPi * (modulatedFreq * 4) * t);
+            final double h2 = 0.55 * math.sin(twoPi * (modulatedFreq * 2) * t);
+            final double h3 = 0.35 * math.sin(twoPi * (modulatedFreq * 3) * t);
+            final double h4 = 0.20 * math.sin(twoPi * (modulatedFreq * 4) * t);
+            final double h5 = 0.12 * math.sin(twoPi * (modulatedFreq * 5) * t);
 
-            melodySignal = (h1 + h2 + h3 + h4) * mEnv * 0.42;
+            melodySignal = (h1 + h2 + h3 + h4 + h5) * mEnv * 0.68;
             break;
           }
         }
       }
 
       // 6. MIXAGEM MASTER COM LIMITER
-      final double masterMix = (chordSignal + bassSignal + drumSignal + melodySignal);
+      final double masterMix = (chordSignal * 0.75 + bassSignal * 0.75 + drumSignal * 0.75 + melodySignal);
       final int pcm16 = (masterMix.clamp(-1.0, 1.0) * 32767).toInt();
       byteData.setInt16(44 + i * 2, pcm16, Endian.little);
     }
