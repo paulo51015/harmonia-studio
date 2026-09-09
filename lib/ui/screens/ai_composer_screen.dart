@@ -1,16 +1,16 @@
+import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/ai_song_model.dart';
 import '../../services/ai_music_generator_service.dart';
 import '../../services/studio_audio_engine.dart';
-import '../../services/synth_service.dart';
 import '../../theme/app_theme.dart';
 
-/// Tela Avançada de Composição com IA inspirada nos recursos completos do Suno AI:
-/// Modo Simples, Modo Personalizado (Custom Mode), Geração Dupla (Versões A/B),
-/// Extensor de Canção (Extend Clip), Estilos Vocais, Player com Karaokê e Mixagem de Stems.
+/// Tela de Composição IA estilo Suno com Player Master, Melodia e Arranjo Completos e Compartilhamento Nativo (WhatsApp / Áudio).
 class AiComposerScreen extends StatefulWidget {
   final StudioAudioEngine studioEngine;
   final VoidCallback? onNavigateToStudio;
@@ -25,13 +25,18 @@ class AiComposerScreen extends StatefulWidget {
   State<AiComposerScreen> createState() => _AiComposerScreenState();
 }
 
-class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerProviderStateMixin {
+class _AiComposerScreenState extends State<AiComposerScreen> {
   final TextEditingController _promptController = TextEditingController();
   final TextEditingController _customLyricsController = TextEditingController();
   final TextEditingController _customTitleController = TextEditingController();
   final TextEditingController _stylePromptController = TextEditingController();
 
   final AiMusicGeneratorService _generatorService = AiMusicGeneratorService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  StreamSubscription? _playerStateSubscription;
+  StreamSubscription? _positionSubscription;
+  StreamSubscription? _durationSubscription;
 
   bool _isCustomMode = false;
   bool _isInstrumental = false;
@@ -43,20 +48,16 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
   int _selectedBpm = 72;
 
   bool _isGenerating = false;
-  bool _isPlayingPreview = false;
-  int _activeNoteIndex = 0;
+  PlayerState _playerState = PlayerState.stopped;
+  Duration _position = Duration.zero;
+  Duration _duration = const Duration(seconds: 140);
 
   AiSongModel? _songV1;
   AiSongModel? _songV2;
   int _selectedVariationIndex = 0; // 0 = Versão 1, 1 = Versão 2
 
-  // Mixagem de Stems
-  double _volMelody = 0.9;
-  double _volChords = 0.8;
-  double _volRhythm = 0.7;
-
   final List<({String name, String icon, String example, String defaultVocal})> _genresWithDetails = [
-    (name: 'Gospel / Louvor', icon: '🙏', example: 'Um louvor de adoração suave e emocionante sobre fé e gratidão', defaultVocal: 'Coral / Dueto Gospel'),
+    (name: 'Gospel / Louvor', icon: '🙏', example: 'Um louvor de adoração suave e emocionante sobre fé e gratidão com piano acústico', defaultVocal: 'Coral / Dueto Gospel'),
     (name: 'Sertanejo', icon: '🤠', example: 'Um modão sertanejo romântico com arpejo de violão e refrão marcante', defaultVocal: 'Dupla Sertaneja'),
     (name: 'Romântica / Balada', icon: '❤️', example: 'Uma balada romântica apaixonada no piano sobre declaração de amor', defaultVocal: 'Voz Romântica & Pop'),
     (name: 'Acústico / MPB', icon: '🎸', example: 'Uma levada suave de violão estilo MPB sobre um fim de tarde', defaultVocal: 'Voz Feminina Suave'),
@@ -92,7 +93,31 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _initAudioPlayer();
+  }
+
+  void _initAudioPlayer() {
+    _playerStateSubscription = _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) setState(() => _playerState = state);
+    });
+
+    _positionSubscription = _audioPlayer.onPositionChanged.listen((pos) {
+      if (mounted) setState(() => _position = pos);
+    });
+
+    _durationSubscription = _audioPlayer.onDurationChanged.listen((dur) {
+      if (mounted && dur.inSeconds > 0) setState(() => _duration = dur);
+    });
+  }
+
+  @override
   void dispose() {
+    _playerStateSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _audioPlayer.dispose();
     _promptController.dispose();
     _customLyricsController.dispose();
     _customTitleController.dispose();
@@ -193,10 +218,12 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
       return;
     }
 
+    await _audioPlayer.stop();
+
     setState(() {
       _isGenerating = true;
-      _isPlayingPreview = false;
       _selectedVariationIndex = 0;
+      _position = Duration.zero;
     });
 
     try {
@@ -217,6 +244,11 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
         _songV2 = songV1.variations.isNotEmpty ? songV1.variations.first : null;
         _isGenerating = false;
       });
+
+      // Carrega o áudio gerado no player
+      if (songV1.audioFilePath != null) {
+        await _audioPlayer.setSource(DeviceFileSource(songV1.audioFilePath!));
+      }
     } catch (e) {
       setState(() => _isGenerating = false);
       if (mounted) {
@@ -227,36 +259,41 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
     }
   }
 
-  Future<void> _togglePlayPreview() async {
+  Future<void> _togglePlayMaster() async {
     final song = _currentSong;
-    if (song == null) return;
+    if (song == null || song.audioFilePath == null) return;
 
-    if (_isPlayingPreview) {
-      setState(() => _isPlayingPreview = false);
-      return;
+    if (_playerState == PlayerState.playing) {
+      await _audioPlayer.pause();
+    } else {
+      await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
     }
+  }
 
+  Future<void> _trocarVariacao(int index) async {
+    await _audioPlayer.stop();
     setState(() {
-      _isPlayingPreview = true;
-      _activeNoteIndex = 0;
+      _selectedVariationIndex = index;
+      _position = Duration.zero;
     });
 
-    for (int i = 0; i < song.melody.length; i++) {
-      if (!_isPlayingPreview || !mounted) break;
-      setState(() => _activeNoteIndex = i);
-
-      final note = song.melody[i];
-      SynthService().playNote(note.note);
-      final delayMs = (note.durationInBeats * (60000 / song.bpm)).round();
-      await Future.delayed(Duration(milliseconds: delayMs));
+    final song = _currentSong;
+    if (song?.audioFilePath != null) {
+      await _audioPlayer.setSource(DeviceFileSource(song!.audioFilePath!));
+      await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
     }
+  }
 
-    if (mounted) {
-      setState(() {
-        _isPlayingPreview = false;
-        _activeNoteIndex = 0;
-      });
-    }
+  Future<void> _compartilharAudio() async {
+    final song = _currentSong;
+    if (song == null || song.audioFilePath == null) return;
+
+    final file = XFile(song.audioFilePath!);
+    await Share.shareXFiles(
+      [file],
+      text: '🎵 Ouça a música "${song.title}" (${song.genre}) criada no Harmonia Studio!',
+      subject: 'Música Criada - ${song.title}',
+    );
   }
 
   void _abrirModalEstender() {
@@ -317,6 +354,7 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(ctx);
+                await _audioPlayer.stop();
                 setState(() => _isGenerating = true);
                 final extended = await _generatorService.extendSong(
                   originalSong: song,
@@ -326,6 +364,10 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
                   _songV1 = extended;
                   _isGenerating = false;
                 });
+                if (extended.audioFilePath != null) {
+                  await _audioPlayer.setSource(DeviceFileSource(extended.audioFilePath!));
+                  await _audioPlayer.play(DeviceFileSource(extended.audioFilePath!));
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Música estendida com novas seções com sucesso! 🎶'), backgroundColor: AppTheme.successGreen),
                 );
@@ -343,6 +385,7 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
     final song = _currentSong;
     if (song == null) return;
 
+    await _audioPlayer.stop();
     final l10n = AppLocalizations.of(context);
     final success = await _generatorService.exportSongToStudioDaw(song, widget.studioEngine);
 
@@ -375,11 +418,11 @@ class _AiComposerScreenState extends State<AiComposerScreen> with SingleTickerPr
 🎵 ${song.title}
 Estilo: ${song.genre} | Tom: ${song.musicalKey} | Andamento: ${song.bpm} BPM | Voz: ${song.vocalStyle}
 
-Acordes: ${song.chords.join(' - ')}
+Acordes da Canção: ${song.chords.join(' - ')}
 
 ${song.lyrics}
 
-Gerado com Harmonia Studio AI (Suno Engine)
+Criado com Harmonia Studio AI (Suno Engine)
 ''';
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -387,10 +430,16 @@ Gerado com Harmonia Studio AI (Suno Engine)
     );
   }
 
+  String _formatDuration(Duration d) {
+    final min = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final sec = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$min:$sec';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final song = _currentSong;
+    final isPlaying = _playerState == PlayerState.playing;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -403,7 +452,6 @@ Gerado com Harmonia Studio AI (Suno Engine)
           ],
         ),
         actions: [
-          // Switch Instrumental
           Row(
             children: [
               const Icon(Icons.music_note, size: 16, color: AppTheme.textSecondary),
@@ -489,11 +537,10 @@ Gerado com Harmonia Studio AI (Suno Engine)
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // 2. CONTEÚDO DO MODO SIMPLES
             if (!_isCustomMode) ...[
-              // Seletor de Estilos Musicais
               const Text(
                 'Escolha o Estilo Musical:',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
@@ -527,9 +574,8 @@ Gerado com Harmonia Studio AI (Suno Engine)
                   },
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              // Campo de Descrição da Canção
               Card(
                 color: AppTheme.surface,
                 child: Padding(
@@ -549,7 +595,7 @@ Gerado com Harmonia Studio AI (Suno Engine)
                         controller: _promptController,
                         maxLines: 3,
                         decoration: const InputDecoration(
-                          hintText: 'Descreva a sua ideia (ex: Um louvor gospel emocionante sobre fé e vitória com piano suave...)',
+                          hintText: 'Descreva sua canção (ex: Um louvor gospel emocionante sobre fé e vitória com piano acústico e melodia suave...)',
                         ),
                       ),
                     ],
@@ -558,9 +604,8 @@ Gerado com Harmonia Studio AI (Suno Engine)
               ),
             ],
 
-            // 3. CONTEÚDO DO MODO PERSONALIZADO (CUSTOM MODE)
+            // 3. CONTEÚDO DO MODO CUSTOM (SUNO)
             if (_isCustomMode) ...[
-              // Editor de Letras com Tags Rápidas
               Card(
                 color: AppTheme.surface,
                 child: Padding(
@@ -586,7 +631,6 @@ Gerado com Harmonia Studio AI (Suno Engine)
                         ],
                       ),
                       const SizedBox(height: 6),
-                      // Barra de Tags Estruturais
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
@@ -607,7 +651,7 @@ Gerado com Harmonia Studio AI (Suno Engine)
                         maxLines: 6,
                         style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                         decoration: const InputDecoration(
-                          hintText: 'Escreva ou cole aqui a sua letra com tags como [Verse], [Chorus]...',
+                          hintText: 'Escreva ou cole sua letra aqui...',
                         ),
                       ),
                     ],
@@ -616,7 +660,6 @@ Gerado com Harmonia Studio AI (Suno Engine)
               ),
               const SizedBox(height: 10),
 
-              // Estilo Musical e Título
               Card(
                 color: AppTheme.surface,
                 child: Padding(
@@ -641,7 +684,6 @@ Gerado com Harmonia Studio AI (Suno Engine)
                         ),
                       ),
                       const SizedBox(height: 10),
-                      // Seletor de Tipo de Voz
                       DropdownButtonFormField<String>(
                         value: _selectedVocalStyle,
                         decoration: const InputDecoration(
@@ -658,7 +700,7 @@ Gerado com Harmonia Studio AI (Suno Engine)
             ],
             const SizedBox(height: 12),
 
-            // 4. Painel de Ajustes Harmônicos (Tom, Clima e Andamento)
+            // 4. Painel de Ajustes Harmônicos
             Card(
               color: AppTheme.surface,
               child: Padding(
@@ -708,14 +750,14 @@ Gerado com Harmonia Studio AI (Suno Engine)
             ),
             const SizedBox(height: 16),
 
-            // 5. Botão Principal de Criação (Gera Versão A e B)
+            // 5. Botão de Composição
             ElevatedButton.icon(
               onPressed: _isGenerating ? null : _handleGenerateSong,
               icon: _isGenerating
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                   : const Icon(Icons.auto_awesome, color: Colors.black),
               label: Text(
-                _isGenerating ? 'Compondo Canção com IA...' : 'Criar Canção (Gerar Versões 1 e 2) ✨',
+                _isGenerating ? 'Compondo e Renderizando Áudio Master...' : 'Criar Canção (Gerar Versões 1 e 2) ✨',
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
               ),
               style: ElevatedButton.styleFrom(
@@ -727,8 +769,8 @@ Gerado com Harmonia Studio AI (Suno Engine)
 
             const SizedBox(height: 20),
 
-            // 6. PAINEL DE RESULTADOS SUNO (GERAÇÃO DUPLA A/B)
-            if (_songV1 != null) ...[
+            // 6. PLAYER MASTER COM GERAÇÃO DUPLA E COMPARTILHAMENTO
+            if (song != null) ...[
               // Seletor de Variações Suno (Versão 1 vs Versão 2)
               Row(
                 children: [
@@ -746,10 +788,7 @@ Gerado com Harmonia Studio AI (Suno Engine)
                       selectedColor: AppTheme.cyan,
                       backgroundColor: AppTheme.surfaceLight,
                       labelStyle: TextStyle(color: _selectedVariationIndex == 0 ? Colors.black : Colors.white),
-                      onSelected: (_) => setState(() {
-                        _selectedVariationIndex = 0;
-                        _isPlayingPreview = false;
-                      }),
+                      onSelected: (_) => _trocarVariacao(0),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -760,24 +799,20 @@ Gerado com Harmonia Studio AI (Suno Engine)
                         children: [
                           Icon(Icons.alt_route, size: 14),
                           SizedBox(width: 6),
-                          Text('Versão 2 (Alternativa)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text('Versão 2 (Acústica)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ],
                       ),
                       selected: _selectedVariationIndex == 1,
                       selectedColor: AppTheme.purple,
                       backgroundColor: AppTheme.surfaceLight,
-                      labelStyle: TextStyle(color: _selectedVariationIndex == 1 ? Colors.white : Colors.white),
-                      onSelected: (_) => setState(() {
-                        _selectedVariationIndex = 1;
-                        _isPlayingPreview = false;
-                      }),
+                      labelStyle: const TextStyle(color: Colors.white),
+                      onSelected: (_) => _trocarVariacao(1),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
 
-              // Card da Canção Selecionada
               Card(
                 color: AppTheme.cardColor,
                 shape: RoundedRectangleBorder(
@@ -796,12 +831,12 @@ Gerado com Harmonia Studio AI (Suno Engine)
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: _selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.audiotrack, color: Colors.black, size: 24),
+                            child: const Icon(Icons.music_note, color: Colors.black, size: 26),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -809,8 +844,8 @@ Gerado com Harmonia Studio AI (Suno Engine)
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  song!.title,
-                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                                  song.title,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -818,7 +853,7 @@ Gerado com Harmonia Studio AI (Suno Engine)
                                   style: TextStyle(
                                     color: _selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple,
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
@@ -828,9 +863,9 @@ Gerado com Harmonia Studio AI (Suno Engine)
                       ),
                       const Divider(color: AppTheme.dividerColor, height: 20),
 
-                      // Player Interativo com Ondas Sonoras
+                      // Player Master com Seekbar e Ondas Sonoras
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: AppTheme.surface,
                           borderRadius: BorderRadius.circular(12),
@@ -838,15 +873,17 @@ Gerado com Harmonia Studio AI (Suno Engine)
                         ),
                         child: Column(
                           children: [
+                            // Botão Play/Pause e Visualizador
                             Row(
                               children: [
                                 IconButton.filled(
-                                  icon: Icon(_isPlayingPreview ? Icons.pause : Icons.play_arrow),
+                                  icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow, size: 28),
                                   color: Colors.black,
                                   style: IconButton.styleFrom(
                                     backgroundColor: _selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple,
+                                    padding: const EdgeInsets.all(12),
                                   ),
-                                  onPressed: _togglePlayPreview,
+                                  onPressed: _togglePlayMaster,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -854,23 +891,25 @@ Gerado com Harmonia Studio AI (Suno Engine)
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        _isPlayingPreview ? 'Reproduzindo com sintetizador PCM...' : 'Ouvir canção completa',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        isPlaying ? 'Tocando com Arranjo Completo 🎶' : 'Toque no Play para ouvir a canção',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                       ),
                                       const SizedBox(height: 6),
-                                      // Visualizador de Ondas Dinâmico
+                                      // Visualizador de Ondas Sonoras
                                       Row(
-                                        children: List.generate(24, (i) {
-                                          final isCurrent = _isPlayingPreview && (i == (_activeNoteIndex % 24));
-                                          final barHeight = 8.0 + ((i * 7) % 20);
+                                        children: List.generate(28, (i) {
+                                          final posSec = _position.inSeconds;
+                                          final isCurrent = isPlaying && ((posSec + i) % 7 == 0);
+                                          final barHeight = 8.0 + ((i * 5 + posSec * 3) % 22);
+
                                           return Expanded(
                                             child: Container(
-                                              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                              height: isCurrent ? barHeight * 1.5 : barHeight,
+                                              margin: const EdgeInsets.symmetric(horizontal: 1.2),
+                                              height: isCurrent ? barHeight * 1.4 : barHeight,
                                               decoration: BoxDecoration(
                                                 color: isCurrent
                                                     ? AppTheme.soloYellow
-                                                    : (_selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple).withOpacity(0.6),
+                                                    : (_selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple).withOpacity(0.7),
                                                 borderRadius: BorderRadius.circular(2),
                                               ),
                                             ),
@@ -882,12 +921,51 @@ Gerado com Harmonia Studio AI (Suno Engine)
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 10),
+
+                            // Seekbar / Slider de Progresso
+                            Slider(
+                              value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
+                              min: 0.0,
+                              max: _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 140.0,
+                              activeColor: _selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple,
+                              onChanged: (val) async {
+                                final newPos = Duration(seconds: val.round());
+                                await _audioPlayer.seek(newPos);
+                              },
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(_formatDuration(_position), style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                                  Text(_formatDuration(_duration), style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
 
-                      // Acordes Homologados
+                      // Botão Destaque: COMPARTILHAR ÁUDIO (WhatsApp / Redes)
+                      ElevatedButton.icon(
+                        onPressed: _compartilharAudio,
+                        icon: const Icon(Icons.share, color: Colors.black, size: 20),
+                        label: const Text(
+                          'COMPARTILHAR ÁUDIO (WhatsApp / Redes)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.successGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Acordes
                       Row(
                         children: [
                           const Text('Acordes:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textSecondary)),
@@ -935,7 +1013,7 @@ Gerado com Harmonia Studio AI (Suno Engine)
                       ),
                       const SizedBox(height: 16),
 
-                      // Barra de Ações Avançadas (Estender, DAW, Cifra)
+                      // Botões de Ações (Estender, Cifra, DAW)
                       Row(
                         children: [
                           Expanded(

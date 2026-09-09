@@ -8,14 +8,14 @@ import 'studio_audio_engine.dart';
 import 'synth_service.dart';
 
 /// Motor Inteligente de Composição Musical Avançado estilo Suno AI.
-/// Suporta Modo Simples, Modo Personalizado (Custom Mode), Geração Dupla de Variações (A/B),
-/// Extensor de Canção (Extend Clip), Geração de Letras com Tags Estruturais e Mixagem de Stems.
+/// Renderiza arquivos de áudio WAV master completos com harmonia, baixo, percussão e melodia vocal,
+/// permitindo audição imediata de alta fidelidade e compartilhamento direto no WhatsApp e redes sociais.
 class AiMusicGeneratorService {
   static final AiMusicGeneratorService _instance = AiMusicGeneratorService._internal();
   factory AiMusicGeneratorService() => _instance;
   AiMusicGeneratorService._internal();
 
-  /// Compõe a canção com geração dupla (Versão 1 e Versão 2) a partir dos parâmetros fornecidos.
+  /// Compõe a canção com geração dupla (Versão 1 e Versão 2) e renderiza os arquivos de áudio WAV completos.
   Future<AiSongModel> generateSongFromPrompt({
     required String prompt,
     String? customTitle,
@@ -27,11 +27,9 @@ class AiMusicGeneratorService {
     bool isInstrumental = false,
     int? customBpm,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 1400));
-
     final cleanPrompt = prompt.toLowerCase();
 
-    // 1. Detecção e Priorização de Gêneros Específicos
+    // 1. Detecção de Gêneros Específicos
     String genre = selectedGenre ?? 'Gospel / Louvor';
     if (cleanPrompt.contains('gospel') || cleanPrompt.contains('louvor') || cleanPrompt.contains('adoração') || cleanPrompt.contains('deus') || cleanPrompt.contains('igreja') || cleanPrompt.contains('fé')) {
       genre = 'Gospel / Louvor';
@@ -70,7 +68,7 @@ class AiMusicGeneratorService {
     // 4. Estilo Vocal
     String vocalStyle = isInstrumental ? 'Instrumental Puro' : (selectedVocalStyle ?? _getSuggestedVocal(genre));
 
-    // 5. Letra (Personalizada ou Gerada com Tags Suno)
+    // 5. Letra
     final lyrics = (customLyrics != null && customLyrics.trim().isNotEmpty)
         ? customLyrics.trim()
         : _generateLyrics(prompt, genre, mood, isInstrumental);
@@ -89,8 +87,37 @@ class AiMusicGeneratorService {
     final melodyV2 = _generateMelodyNotes(chordsV2, bpm - 4, genre, isAlternative: true);
     final structureV2 = _generateSongStructure(chordsV2, genre, lyrics);
 
+    // 8. RENDERIZAÇÃO DOS ARQUIVOS MASTER DE ÁUDIO WAV
+    final synth = SynthService();
+    final tempDir = await getTemporaryDirectory();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    // Renderiza Áudio Master V1
+    final masterWavBytesV1 = synth.renderMasterSongWav(
+      chords: chordsV1,
+      melody: melodyV1,
+      bpm: bpm,
+      genre: genre,
+      vocalStyle: vocalStyle,
+      isInstrumental: isInstrumental,
+    );
+    final audioPathV1 = '${tempDir.path}/harmonia_song_${timestamp}_v1.wav';
+    await File(audioPathV1).writeAsBytes(masterWavBytesV1);
+
+    // Renderiza Áudio Master V2
+    final masterWavBytesV2 = synth.renderMasterSongWav(
+      chords: chordsV2,
+      melody: melodyV2,
+      bpm: bpm - 4,
+      genre: genre,
+      vocalStyle: vocalStyle,
+      isInstrumental: isInstrumental,
+    );
+    final audioPathV2 = '${tempDir.path}/harmonia_song_${timestamp}_v2.wav';
+    await File(audioPathV2).writeAsBytes(masterWavBytesV2);
+
     final versaoB = AiSongModel(
-      id: 'ai_song_${DateTime.now().millisecondsSinceEpoch}_v2',
+      id: 'ai_song_${timestamp}_v2',
       title: '$title (Versão 2 - Acústica / Variação)',
       prompt: prompt,
       genre: genre,
@@ -105,10 +132,11 @@ class AiMusicGeneratorService {
       lyrics: lyrics,
       variationLabel: 'Versão 2 (Arranjo Alternativo)',
       durationSeconds: 135,
+      audioFilePath: audioPathV2,
     );
 
     final versaoA = AiSongModel(
-      id: 'ai_song_${DateTime.now().millisecondsSinceEpoch}_v1',
+      id: 'ai_song_${timestamp}_v1',
       title: title,
       prompt: prompt,
       genre: genre,
@@ -124,6 +152,7 @@ class AiMusicGeneratorService {
       variationLabel: 'Versão 1 (Arranjo Principal)',
       variations: [versaoB],
       durationSeconds: 140,
+      audioFilePath: audioPathV1,
     );
 
     return versaoA;
@@ -138,14 +167,12 @@ class AiMusicGeneratorService {
     return _generateLyrics(themePrompt, genre, mood, false);
   }
 
-  /// Estende uma canção adicionando novas seções (Solo, Ponte, Refrão Final, Outro).
+  /// Estende uma canção adicionando novas seções (Solo, Ponte, Refrão Final, Outro) e renderiza o novo áudio completo.
   Future<AiSongModel> extendSong({
     required AiSongModel originalSong,
-    required String extensionType, // 'Ponte & Refrão Final', 'Solo Instrumental & Refrão', 'Finalização / Outro'
+    required String extensionType,
     String? additionalLyrics,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 1000));
-
     final newChords = List<String>.from(originalSong.chords);
     final newMelody = List<MelodyNote>.from(originalSong.melody);
     final newStructure = List<SongSection>.from(originalSong.structure);
@@ -160,7 +187,6 @@ class AiMusicGeneratorService {
           description: 'Solo expressivo com modulação e dinâmica crescente.',
         ),
       );
-      // Adiciona notas do solo
       final soloNotes = _generateMelodyNotes([newChords[1], newChords[2]], originalSong.bpm, originalSong.genre, isAlternative: true);
       newMelody.addAll(soloNotes);
       addedLyrics += '\n\n[Solo Instrumental]';
@@ -186,14 +212,30 @@ class AiMusicGeneratorService {
 
     final fullLyrics = '${originalSong.lyrics}$addedLyrics';
 
+    final synth = SynthService();
+    final tempDir = await getTemporaryDirectory();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    final extendedWavBytes = synth.renderMasterSongWav(
+      chords: newChords,
+      melody: newMelody,
+      bpm: originalSong.bpm,
+      genre: originalSong.genre,
+      vocalStyle: originalSong.vocalStyle,
+      isInstrumental: originalSong.isInstrumental,
+    );
+    final newAudioPath = '${tempDir.path}/harmonia_song_ext_$timestamp.wav';
+    await File(newAudioPath).writeAsBytes(extendedWavBytes);
+
     return originalSong.copyWith(
-      id: 'ai_song_ext_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'ai_song_ext_$timestamp',
       title: '${originalSong.title} (Estendida)',
       chords: newChords,
       melody: newMelody,
       structure: newStructure,
       lyrics: fullLyrics,
       durationSeconds: originalSong.durationSeconds + 45,
+      audioFilePath: newAudioPath,
     );
   }
 
@@ -260,7 +302,6 @@ class AiMusicGeneratorService {
           return ['C', 'G', 'Am', 'F'];
       }
     } else {
-      // Variação harmônica alternativa
       switch (genre) {
         case 'Gospel / Louvor':
           return ['F', 'G', 'Em', 'Am'];
@@ -504,7 +545,6 @@ Esse piseiro ninguém vai segurar!
 ''';
     }
 
-    // Default / MPB / Pop
     return '''
 [Verso 1]
 Olho pela janela e vejo o dia clarear,

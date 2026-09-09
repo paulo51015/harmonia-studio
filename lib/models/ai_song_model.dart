@@ -16,6 +16,7 @@ class AiSongModel {
   final String? variationLabel; // 'Versão 1 (Arranjo Principal)', 'Versão 2 (Acústico / Alternativo)'
   final List<AiSongModel> variations; // Versão A e Versão B
   final int durationSeconds;
+  final String? audioFilePath; // Caminho do arquivo WAV completo master gravado no disco
 
   const AiSongModel({
     required this.id,
@@ -34,6 +35,7 @@ class AiSongModel {
     this.variationLabel,
     this.variations = const [],
     this.durationSeconds = 120,
+    this.audioFilePath,
   });
 
   AiSongModel copyWith({
@@ -53,6 +55,7 @@ class AiSongModel {
     String? variationLabel,
     List<AiSongModel>? variations,
     int? durationSeconds,
+    String? audioFilePath,
   }) {
     return AiSongModel(
       id: id ?? this.id,
@@ -71,6 +74,7 @@ class AiSongModel {
       variationLabel: variationLabel ?? this.variationLabel,
       variations: variations ?? this.variations,
       durationSeconds: durationSeconds ?? this.durationSeconds,
+      audioFilePath: audioFilePath ?? this.audioFilePath,
     );
   }
 }
