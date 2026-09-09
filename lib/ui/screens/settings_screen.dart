@@ -222,7 +222,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
-          // 3. Especificações do Motor de Áudio DAW
+          // 3. Especificações do Motor de Áudio DAW & Versão
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -234,12 +234,14 @@ class SettingsScreen extends StatelessWidget {
                       Icon(Icons.developer_board, color: AppTheme.cyan, size: 20),
                       SizedBox(width: 10),
                       Text(
-                        'Motor de Áudio & Configurações DAW',
+                        'Motor de Áudio & Versão',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
+                  _specRow(Icons.auto_awesome, 'Versão do App', 'v1.1.0 (Compositor IA + Voz & Karaokê)'),
+                  const SizedBox(height: 8),
                   _specRow(Icons.graphic_eq, 'Taxa de Amostragem', '44.1 kHz / 16-bit PCM'),
                   const SizedBox(height: 8),
                   _specRow(Icons.speed, 'Latência do Buffer', 'Modo Baixa Latência (DAW)'),
@@ -268,6 +270,13 @@ class SettingsScreen extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
           ),
+          const SizedBox(height: 16),
+          const Center(
+            child: Text(
+              'Harmonia Studio v1.1.0 • Build Atualizado',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+          ),
         ],
       ),
     );
@@ -281,7 +290,7 @@ class SettingsScreen extends StatelessWidget {
         Expanded(
           child: Text(title, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
         ),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cyan)),
       ],
     );
   }

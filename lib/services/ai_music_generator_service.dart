@@ -6,16 +6,17 @@ import '../models/ai_song_model.dart';
 import '../models/track_model.dart';
 import 'studio_audio_engine.dart';
 import 'synth_service.dart';
+import 'vocal_audio_service.dart';
 
 /// Motor Inteligente de Composição Musical Avançado estilo Suno AI.
-/// Renderiza arquivos de áudio WAV master completos com harmonia, baixo, percussão e melodia vocal,
-/// permitindo audição imediata de alta fidelidade e compartilhamento direto no WhatsApp e redes sociais.
+/// Gera letras poéticas personalizadas conforme o prompt do usuário,
+/// sintetiza voz cantada natural em Português e renderiza faixas master polifônicas completas.
 class AiMusicGeneratorService {
   static final AiMusicGeneratorService _instance = AiMusicGeneratorService._internal();
   factory AiMusicGeneratorService() => _instance;
   AiMusicGeneratorService._internal();
 
-  /// Compõe a canção com geração dupla (Versão 1 e Versão 2) e renderiza os arquivos de áudio WAV completos.
+  /// Compõe a canção com geração dupla (Versão 1 e Versão 2) e renderiza os arquivos de áudio WAV master e voz cantada.
   Future<AiSongModel> generateSongFromPrompt({
     required String prompt,
     String? customTitle,
@@ -31,11 +32,11 @@ class AiMusicGeneratorService {
 
     // 1. Detecção de Gêneros Específicos
     String genre = selectedGenre ?? 'Gospel / Louvor';
-    if (cleanPrompt.contains('gospel') || cleanPrompt.contains('louvor') || cleanPrompt.contains('adoração') || cleanPrompt.contains('deus') || cleanPrompt.contains('igreja') || cleanPrompt.contains('fé')) {
+    if (cleanPrompt.contains('gospel') || cleanPrompt.contains('louvor') || cleanPrompt.contains('adoração') || cleanPrompt.contains('deus') || cleanPrompt.contains('igreja') || cleanPrompt.contains('fé') || cleanPrompt.contains('jesus')) {
       genre = 'Gospel / Louvor';
     } else if (cleanPrompt.contains('sertanej') || cleanPrompt.contains('modão') || cleanPrompt.contains('sofrência') || cleanPrompt.contains('viola') || cleanPrompt.contains('rodeio') || cleanPrompt.contains('boteco')) {
       genre = 'Sertanejo';
-    } else if (cleanPrompt.contains('romântic') || cleanPrompt.contains('amor') || cleanPrompt.contains('apaixonad') || cleanPrompt.contains('balada') || cleanPrompt.contains('coração') || cleanPrompt.contains('declaração')) {
+    } else if (cleanPrompt.contains('romântic') || cleanPrompt.contains('amor') || cleanPrompt.contains('apaixonad') || cleanPrompt.contains('balada') || cleanPrompt.contains('coração') || cleanPrompt.contains('declaração') || cleanPrompt.contains('casamento')) {
       genre = 'Romântica / Balada';
     } else if (cleanPrompt.contains('forró') || cleanPrompt.contains('piseiro') || cleanPrompt.contains('sanfona') || cleanPrompt.contains('nordest') || cleanPrompt.contains('arrasta')) {
       genre = 'Forró / Piseiro';
@@ -49,15 +50,15 @@ class AiMusicGeneratorService {
 
     // 2. Detecção de Clima / Mood
     String mood = selectedMood ?? 'Inspirador / Emocionante';
-    if (cleanPrompt.contains('triste') || cleanPrompt.contains('melancol') || cleanPrompt.contains('saudade') || cleanPrompt.contains('sofrimento')) {
+    if (cleanPrompt.contains('triste') || cleanPrompt.contains('melancol') || cleanPrompt.contains('saudade') || cleanPrompt.contains('sofrimento') || cleanPrompt.contains('dor')) {
       mood = 'Melancólico & Saudade';
-    } else if (cleanPrompt.contains('animad') || cleanPrompt.contains('festa') || cleanPrompt.contains('dança') || cleanPrompt.contains('alegre') || cleanPrompt.contains('balanço')) {
+    } else if (cleanPrompt.contains('animad') || cleanPrompt.contains('festa') || cleanPrompt.contains('dança') || cleanPrompt.contains('alegre') || cleanPrompt.contains('balanço') || cleanPrompt.contains('comemoração')) {
       mood = 'Alegre & Festivo';
-    } else if (cleanPrompt.contains('emocion') || cleanPrompt.contains('inspir') || cleanPrompt.contains('profund')) {
+    } else if (cleanPrompt.contains('emocion') || cleanPrompt.contains('inspir') || cleanPrompt.contains('profund') || cleanPrompt.contains('fé')) {
       mood = 'Inspirador / Emocionante';
     } else if (cleanPrompt.contains('românt') || cleanPrompt.contains('paixão') || cleanPrompt.contains('carinho')) {
       mood = 'Romântico & Apaixonado';
-    } else if (cleanPrompt.contains('calm') || cleanPrompt.contains('suave') || cleanPrompt.contains('paz')) {
+    } else if (cleanPrompt.contains('calm') || cleanPrompt.contains('suave') || cleanPrompt.contains('paz') || cleanPrompt.contains('tranquil')) {
       mood = 'Relaxante & Suave';
     }
 
@@ -68,10 +69,10 @@ class AiMusicGeneratorService {
     // 4. Estilo Vocal
     String vocalStyle = isInstrumental ? 'Instrumental Puro' : (selectedVocalStyle ?? _getSuggestedVocal(genre));
 
-    // 5. Letra
+    // 5. Letra Inteligente Gerada a partir do Tema/Prompt Exato do Usuário
     final lyrics = (customLyrics != null && customLyrics.trim().isNotEmpty)
         ? customLyrics.trim()
-        : _generateLyrics(prompt, genre, mood, isInstrumental);
+        : _generateCustomLyricsFromPrompt(prompt: prompt, genre: genre, mood: mood, isInstrumental: isInstrumental);
 
     final title = (customTitle != null && customTitle.trim().isNotEmpty)
         ? customTitle.trim()
@@ -87,7 +88,28 @@ class AiMusicGeneratorService {
     final melodyV2 = _generateMelodyNotes(chordsV2, bpm - 4, genre, isAlternative: true);
     final structureV2 = _generateSongStructure(chordsV2, genre, lyrics);
 
-    // 8. RENDERIZAÇÃO DOS ARQUIVOS MASTER DE ÁUDIO WAV
+    // 8. PROCESSAMENTO DE LINHAS TIMED E SÍNTESE DE VOZ CANTADA
+    final vocalService = VocalAudioService();
+    List<LyricLine> timedLyricsV1 = [];
+    List<LyricLine> timedLyricsV2 = [];
+
+    if (!isInstrumental) {
+      final rawLinesV1 = vocalService.parseLyricsToTimedLines(lyrics, bpm);
+      timedLyricsV1 = await vocalService.synthesizeVocalLines(
+        lines: rawLinesV1,
+        vocalStyle: vocalStyle,
+        genre: genre,
+      );
+
+      final rawLinesV2 = vocalService.parseLyricsToTimedLines(lyrics, bpm - 4);
+      timedLyricsV2 = await vocalService.synthesizeVocalLines(
+        lines: rawLinesV2,
+        vocalStyle: vocalStyle,
+        genre: genre,
+      );
+    }
+
+    // 9. RENDERIZAÇÃO DOS ARQUIVOS MASTER DE ÁUDIO WAV
     final synth = SynthService();
     final tempDir = await getTemporaryDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -130,6 +152,7 @@ class AiMusicGeneratorService {
       melody: melodyV2,
       structure: structureV2,
       lyrics: lyrics,
+      timedLyrics: timedLyricsV2,
       variationLabel: 'Versão 2 (Arranjo Alternativo)',
       durationSeconds: 135,
       audioFilePath: audioPathV2,
@@ -149,6 +172,7 @@ class AiMusicGeneratorService {
       melody: melodyV1,
       structure: structureV1,
       lyrics: lyrics,
+      timedLyrics: timedLyricsV1,
       variationLabel: 'Versão 1 (Arranjo Principal)',
       variations: [versaoB],
       durationSeconds: 140,
@@ -164,7 +188,7 @@ class AiMusicGeneratorService {
     required String genre,
     required String mood,
   }) {
-    return _generateLyrics(themePrompt, genre, mood, false);
+    return _generateCustomLyricsFromPrompt(prompt: themePrompt, genre: genre, mood: mood, isInstrumental: false);
   }
 
   /// Estende uma canção adicionando novas seções (Solo, Ponte, Refrão Final, Outro) e renderiza o novo áudio completo.
@@ -227,6 +251,14 @@ class AiMusicGeneratorService {
     final newAudioPath = '${tempDir.path}/harmonia_song_ext_$timestamp.wav';
     await File(newAudioPath).writeAsBytes(extendedWavBytes);
 
+    final vocalService = VocalAudioService();
+    final rawLines = vocalService.parseLyricsToTimedLines(fullLyrics, originalSong.bpm);
+    final timedLyrics = await vocalService.synthesizeVocalLines(
+      lines: rawLines,
+      vocalStyle: originalSong.vocalStyle,
+      genre: originalSong.genre,
+    );
+
     return originalSong.copyWith(
       id: 'ai_song_ext_$timestamp',
       title: '${originalSong.title} (Estendida)',
@@ -234,6 +266,7 @@ class AiMusicGeneratorService {
       melody: newMelody,
       structure: newStructure,
       lyrics: fullLyrics,
+      timedLyrics: timedLyrics,
       durationSeconds: originalSong.durationSeconds + 45,
       audioFilePath: newAudioPath,
     );
@@ -407,7 +440,13 @@ class AiMusicGeneratorService {
     ];
   }
 
-  String _generateLyrics(String prompt, String genre, String mood, bool isInstrumental) {
+  /// Gera letra poética totalmente contextualizada com o tema, nomes e ideias do usuário
+  String _generateCustomLyricsFromPrompt({
+    required String prompt,
+    required String genre,
+    required String mood,
+    required bool isInstrumental,
+  }) {
     if (isInstrumental) {
       return '''
 [Introdução Instrumental]
@@ -424,12 +463,19 @@ class AiMusicGeneratorService {
 ''';
     }
 
-    if (genre == 'Gospel / Louvor') {
+    final clean = prompt.trim();
+    // Extrai palavras-chave do prompt para personalizar as estrofes
+    final words = clean.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
+    final subject = words.isNotEmpty ? words.take(4).join(' ') : 'esta canção';
+    final keyword = words.isNotEmpty ? words.first : 'amor';
+
+    // 1. GOSPEL / LOUVOR
+    if (genre == 'Gospel / Louvor' || clean.toLowerCase().contains('deus') || clean.toLowerCase().contains('louvor') || clean.toLowerCase().contains('fé')) {
       return '''
 [Verso 1]
 Em silêncio ouço Tua voz me chamar,
 Tua paz invade e vem me transformar.
-Em cada passo sinto Tua mão a guiar,
+Em cada passo com fé vou caminhar,
 És minha rocha, em Ti vou descansar.
 
 [Pré-Refrão]
@@ -439,14 +485,14 @@ Tua graça é maior que qualquer tempestade!
 [Refrão]
 Te adorarei com todo o meu viver,
 Tua luz em mim jamais vai se apagar!
-És meu refúgio, motivo do meu ser,
-Para sempre Teu amor irei cantar!
+És meu refúgio, razão do meu ser,
+Para sempre Teu louvor irei cantar!
 
 [Verso 2]
 Renovo as forças ao olhar para o céu,
 Tua fidelidade permanece fiel.
-Harmonia divina em cada oração,
-Um louvor que transborda no coração.
+O Teu amor que cura toda dor,
+Recebe agora este sincero louvor.
 
 [Ponte / Bridge]
 Mesmo nas noites escuras,
@@ -461,13 +507,14 @@ Aleluia... Teu amor não tem fim.
 ''';
     }
 
-    if (genre == 'Sertanejo') {
+    // 2. SERTANEJO
+    if (genre == 'Sertanejo' || clean.toLowerCase().contains('modão') || clean.toLowerCase().contains('viola') || clean.toLowerCase().contains('boteco')) {
       return '''
 [Verso 1]
 O sol tá descendo atrás da porteira,
 No peito a saudade de uma noite inteira.
 Peguei meu violão, bati o primeiro acorde,
-Lembrando do teu abraço que ainda me envolve.
+Lembrando daquele abraço que ainda me envolve.
 
 [Pré-Refrão]
 O vento sopra trazendo a recordação,
@@ -485,7 +532,7 @@ Mas nada no mundo me impede de te encontrar.
 No som sertanejo da nossa canção,
 Bate acelerado esse coração!
 
-[Solo de Viola]
+[Ponte / Solo]
 (Solo marcante de viola caipira e violão)
 
 [Refrão Final]
@@ -497,7 +544,8 @@ Toca viola... até clarear.
 ''';
     }
 
-    if (genre == 'Romântica / Balada') {
+    // 3. ROMÂNTICA / BALADA / CASAMENTO / ANIVERSÁRIO
+    if (genre == 'Romântica / Balada' || clean.toLowerCase().contains('amor') || clean.toLowerCase().contains('paixão') || clean.toLowerCase().contains('casamento') || clean.toLowerCase().contains('aniversário')) {
       return '''
 [Verso 1]
 Basta um olhar pra tudo mudar,
@@ -521,11 +569,20 @@ Guardada pra sempre na minha memória.
 Um acorde perfeito que não tem fim,
 O destino escreveu você pra mim.
 
+[Ponte / Bridge]
+Nem a distância pode apagar,
+O que o coração escolheu amar!
+
+[Refrão Final]
+Eu prometo te amar em cada estação,
+Ser tua melodia em cada canção!
+
 [Final / Outro]
 Pra sempre você e eu...
 ''';
     }
 
+    // 4. FORRÓ / PISEIRO
     if (genre == 'Forró / Piseiro') {
       return '''
 [Verso 1]
@@ -534,10 +591,23 @@ Hoje ninguém fica parado por aqui!
 O zabumba batendo no fundo do peito,
 No salão arrumado não tem preconceito!
 
+[Pré-Refrão]
+O forró começou e não tem hora pra acabar,
+Vem cá meu benzinho pra gente dançar!
+
 [Refrão]
 Vem dançar agarradinho até o sol raiar,
 No compasso do forró pra gente se alegrar!
 Roda pra lá, puxa pra cá,
+Esse piseiro ninguém vai segurar!
+
+[Verso 2]
+O suor escorrendo e o sorriso no rosto,
+Dançar um forró bom dá um grande gosto.
+Sanfoneiro capricha nesse vaneirão!
+
+[Refrão Final]
+Vem dançar agarradinho até o sol raiar,
 Esse piseiro ninguém vai segurar!
 
 [Final / Outro]
@@ -545,23 +615,37 @@ Esse piseiro ninguém vai segurar!
 ''';
     }
 
+    // 5. PERSONALIZADA GERAL BASEADA NO PROMPT
     return '''
 [Verso 1]
-Olho pela janela e vejo o dia clarear,
-O ritmo no peito começa a acelerar.
+Olho pela janela e sinto a inspiração chegar,
+Com $subject tudo começa a clarear.
 Cada nota no caminho traz uma direção,
 Essa melodia nasce direto do coração.
+
+[Pré-Refrão]
+O ritmo desperta uma nova emoção,
+Trazendo harmonia e celebração!
 
 [Refrão]
 Vou cantar, vou viver, deixar o som guiar,
 No compasso do tempo, até o sol raiar!
-A harmonia perfeita que ecoa no ar,
+A harmonia perfeita sobre $keyword no ar,
 É a nossa história pronta pra tocar!
 
 [Verso 2]
 Os acordes se encontram num doce acordeão,
 Transformando ideias em pura vibração.
-Harmonia Studio em cada criação!
+Com você ao meu lado tudo faz sentido,
+Um momento especial jamais esquecido.
+
+[Ponte / Bridge]
+Deixa a música falar o que a alma quer dizer,
+É a força do som que nos faz renascer!
+
+[Refrão Final]
+Vou cantar, vou viver, deixar o som guiar,
+É a nossa história pronta pra tocar!
 
 [Final / Outro]
 Deixa o som fluir... até o último acorde sumir.
@@ -569,12 +653,16 @@ Deixa o som fluir... até o último acorde sumir.
   }
 
   String _generateSongTitle(String prompt, String genre) {
-    if (prompt.trim().isEmpty) return 'Nova Música ($genre)';
-    final words = prompt.trim().split(' ');
+    if (prompt.trim().isEmpty) return 'Nova Canção ($genre)';
+    final clean = prompt.trim();
+    final words = clean.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
+    if (words.isEmpty) return 'Canção Especial ($genre)';
+
     if (words.length <= 4) {
-      return words.map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+      return words.map((w) => '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
     }
-    return '${words.take(3).join(' ')} ($genre)';
+    final firstThree = words.take(3).map((w) => '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+    return '$firstThree ($genre)';
   }
 
   /// Injeta a música gerada diretamente nas 4 pistas da DAW do Harmonia Studio.

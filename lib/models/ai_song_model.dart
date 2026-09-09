@@ -13,6 +13,7 @@ class AiSongModel {
   final List<MelodyNote> melody;
   final List<SongSection> structure;
   final String lyrics;
+  final List<LyricLine> timedLyrics; // Linhas sincronizadas com timestamp para Karaokê e Voz Cantada
   final String? variationLabel; // 'Versão 1 (Arranjo Principal)', 'Versão 2 (Acústico / Alternativo)'
   final List<AiSongModel> variations; // Versão A e Versão B
   final int durationSeconds;
@@ -32,6 +33,7 @@ class AiSongModel {
     required this.melody,
     required this.structure,
     required this.lyrics,
+    this.timedLyrics = const [],
     this.variationLabel,
     this.variations = const [],
     this.durationSeconds = 120,
@@ -52,6 +54,7 @@ class AiSongModel {
     List<MelodyNote>? melody,
     List<SongSection>? structure,
     String? lyrics,
+    List<LyricLine>? timedLyrics,
     String? variationLabel,
     List<AiSongModel>? variations,
     int? durationSeconds,
@@ -71,8 +74,45 @@ class AiSongModel {
       melody: melody ?? this.melody,
       structure: structure ?? this.structure,
       lyrics: lyrics ?? this.lyrics,
+      timedLyrics: timedLyrics ?? this.timedLyrics,
       variationLabel: variationLabel ?? this.variationLabel,
       variations: variations ?? this.variations,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      audioFilePath: audioFilePath ?? this.audioFilePath,
+    );
+  }
+}
+
+class LyricLine {
+  final int index;
+  final String section; // '[Verso 1]', '[Refrão]', etc.
+  final String text; // Frase da letra cantada
+  final double timestampSeconds; // Ponto no tempo da música
+  final double durationSeconds;
+  final String? audioFilePath; // Caminho do arquivo de voz cantada
+
+  const LyricLine({
+    required this.index,
+    required this.section,
+    required this.text,
+    required this.timestampSeconds,
+    this.durationSeconds = 3.5,
+    this.audioFilePath,
+  });
+
+  LyricLine copyWith({
+    int? index,
+    String? section,
+    String? text,
+    double? timestampSeconds,
+    double? durationSeconds,
+    String? audioFilePath,
+  }) {
+    return LyricLine(
+      index: index ?? this.index,
+      section: section ?? this.section,
+      text: text ?? this.text,
+      timestampSeconds: timestampSeconds ?? this.timestampSeconds,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       audioFilePath: audioFilePath ?? this.audioFilePath,
     );
