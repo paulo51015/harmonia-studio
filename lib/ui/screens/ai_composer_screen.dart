@@ -11,8 +11,8 @@ import '../../services/studio_audio_engine.dart';
 import '../../services/vocal_audio_service.dart';
 import '../../theme/app_theme.dart';
 
-/// Tela de Composição IA estilo Suno com Player Master, Melodia e Arranjo Completos,
-/// Síntese de Voz Cantada em Português, Karaokê Sincronizado e Compartilhamento Nativo.
+/// Tela de Composição IA estilo Suno + Leonardo AI com Player Master, Melodia e Arranjo Completos,
+/// Síntese de Voz Cantada em Português (FlutterTTS), Karaokê Sincronizado e Capas de Álbum Leonardo AI.
 class AiComposerScreen extends StatefulWidget {
   final StudioAudioEngine studioEngine;
   final VoidCallback? onNavigateToStudio;
@@ -69,11 +69,11 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
 
   final List<({String name, String icon, String example, String defaultVocal})> _genresWithDetails = [
     (name: 'Gospel / Louvor', icon: '🙏', example: 'Um louvor de adoração suave e emocionante sobre fé e gratidão a Deus com piano acústico', defaultVocal: 'Coral / Dueto Gospel'),
-    (name: 'Sertanejo', icon: '🤠', example: 'Um modão sertanejo romântico com arpejo de violão e refrão marcante', defaultVocal: 'Dupla Sertaneja'),
-    (name: 'Romântica / Balada', icon: '❤️', example: 'Uma balada romântica apaixonada no piano sobre declaração de amor', defaultVocal: 'Voz Romântica & Pop'),
-    (name: 'Acústico / MPB', icon: '🎸', example: 'Uma levada suave de violão estilo MPB sobre um fim de tarde', defaultVocal: 'Voz Feminina Suave'),
-    (name: 'Forró / Piseiro', icon: '🪗', example: 'Um forró animado e dançante com ritmo de sanfona e festa', defaultVocal: 'Voz Masculina Encorpada'),
-    (name: 'Rock / Pop Rock', icon: '⚡', example: 'Um pop rock enérgico com riff de guitarra e bateria contagiante', defaultVocal: 'Voz Masculina Encorpada'),
+    (name: 'Sertanejo', icon: '🤠', example: 'Uma homenagem animada aos colaboradores da empresa pelo excelente mês de trabalho', defaultVocal: 'Dupla Sertaneja'),
+    (name: 'Romântica / Balada', icon: '❤️', example: 'Uma balada romântica apaixonada no piano sobre declaração de amor eterno', defaultVocal: 'Voz Romântica & Pop'),
+    (name: 'Acústico / MPB', icon: '🎸', example: 'Uma levada suave de violão estilo MPB sobre conquistas e amizade', defaultVocal: 'Voz Feminina Suave'),
+    (name: 'Forró / Piseiro', icon: '🪗', example: 'Um forró animado e dançante comemorando as metas batidas', defaultVocal: 'Voz Masculina Encorpada'),
+    (name: 'Rock / Pop Rock', icon: '⚡', example: 'Um pop rock enérgico sobre vitória, superação e trabalho em equipe', defaultVocal: 'Voz Masculina Encorpada'),
     (name: 'Lo-Fi Chill', icon: '☕', example: 'Uma melodia relaxante de piano lo-fi para estudar e descansar', defaultVocal: 'Instrumental Puro'),
   ];
 
@@ -148,7 +148,7 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
 
   void _scrollToActiveLine(int? index) {
     if (index == null || !_lyricsScrollController.hasClients) return;
-    final targetOffset = (index * 42.0).clamp(0.0, _lyricsScrollController.position.maxScrollExtent);
+    final targetOffset = (index * 46.0).clamp(0.0, _lyricsScrollController.position.maxScrollExtent);
     _lyricsScrollController.animateTo(
       targetOffset,
       duration: const Duration(milliseconds: 300),
@@ -192,7 +192,7 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
           break;
         case 'Sertanejo':
           _selectedBpm = 118;
-          _selectedMood = 'Romântico & Apaixonado';
+          _selectedMood = 'Alegre & Festivo';
           _selectedKey = 'G (Sol Maior)';
           break;
         case 'Romântica / Balada':
@@ -244,7 +244,7 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Letra poética gerada com sucesso com tags de estrutura! ✨'),
+        content: Text('Letra poética gerada com base no seu tema! ✨'),
         backgroundColor: AppTheme.successGreen,
       ),
     );
@@ -270,14 +270,14 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
 
     setState(() {
       _isGenerating = true;
-      _generatingStatus = '1/3 - Compondo harmonia e letra poética...';
+      _generatingStatus = '1/3 - Analisando prompt & compondo letra personalizada...';
       _selectedVariationIndex = 0;
       _position = Duration.zero;
       _activeLyricLineIndex = null;
     });
 
     try {
-      setState(() => _generatingStatus = '2/3 - Sintetizando voz cantada em Português...');
+      setState(() => _generatingStatus = '2/3 - Renderizando harmonia & sintetizando voz cantada...');
       final songV1 = await _generatorService.generateSongFromPrompt(
         prompt: promptText,
         customTitle: _isCustomMode ? _customTitleController.text : null,
@@ -291,7 +291,7 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
       );
 
       setState(() {
-        _generatingStatus = '3/3 - Finalizando master e faixas duplas...';
+        _generatingStatus = '3/3 - Gerando capa de álbum Leonardo AI e Master mix...';
         _songV1 = songV1;
         _songV2 = songV1.variations.isNotEmpty ? songV1.variations.first : null;
         _isGenerating = false;
@@ -319,6 +319,7 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
       await _audioPlayer.pause();
       await _vocalAudioService.pause();
     } else {
+      _vocalAudioService.configureVocalStyle(song.vocalStyle);
       await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
       if (song.timedLyrics.isNotEmpty) {
         _vocalAudioService.syncPlayback(_position, song.timedLyrics);
@@ -338,7 +339,8 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
 
     final song = _currentSong;
     if (song?.audioFilePath != null) {
-      await _audioPlayer.setSource(DeviceFileSource(song!.audioFilePath!));
+      _vocalAudioService.configureVocalStyle(song!.vocalStyle);
+      await _audioPlayer.setSource(DeviceFileSource(song.audioFilePath!));
       await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
     }
   }
@@ -356,7 +358,7 @@ Estilo: ${song.genre} | Voz: ${song.vocalStyle} | Tom: ${song.musicalKey} | ${so
 📜 *Letra:*
 ${song.lyrics}
 
-✨ Criado com Harmonia Studio AI (Suno Engine)
+✨ Criado com Harmonia Studio AI (Suno + Leonardo AI Engine)
 ''';
 
     if (song.audioFilePath != null) {
@@ -502,7 +504,7 @@ Acordes da Canção: ${song.chords.join(' - ')}
 
 ${song.lyrics}
 
-Criado com Harmonia Studio AI (Suno Engine)
+Criado com Harmonia Studio AI (Suno + Leonardo AI Engine)
 ''';
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -528,7 +530,7 @@ Criado com Harmonia Studio AI (Suno Engine)
           children: [
             Icon(Icons.auto_awesome, color: AppTheme.cyan),
             SizedBox(width: 8),
-            Text('Compositor IA'),
+            Text('Compositor IA (Suno + Leonardo)'),
           ],
         ),
       ),
@@ -704,7 +706,7 @@ Criado com Harmonia Studio AI (Suno Engine)
                         controller: _promptController,
                         maxLines: 3,
                         decoration: const InputDecoration(
-                          hintText: 'Descreva sua canção (ex: Um louvor de adoração sobre gratidão a Deus com piano acústico e melodia suave...)',
+                          hintText: 'Descreva sua canção (ex: faça uma homenagem aos colaboradores da empresa Centro Automotivo Silva pelo excelente mês...)',
                         ),
                       ),
                     ],
@@ -787,8 +789,8 @@ Criado com Harmonia Studio AI (Suno Engine)
                       TextField(
                         controller: _stylePromptController,
                         decoration: const InputDecoration(
-                          labelText: 'Estilo de Música (Tags / Style Prompt)',
-                          hintText: 'ex: acoustic gospel, warm piano, 72 bpm, female vocals',
+                          labelText: 'Estilo de Música (Leonardo IA Style Prompt)',
+                          hintText: 'ex: cinematic master, acoustic guitar, female vocals, 8k vinyl',
                           prefixIcon: Icon(Icons.music_note, color: AppTheme.cyan),
                         ),
                       ),
@@ -878,7 +880,7 @@ Criado com Harmonia Studio AI (Suno Engine)
 
             const SizedBox(height: 20),
 
-            // 6. PLAYER MASTER COM VOZ CANTADA E KARAOKÊ
+            // 6. PLAYER MASTER COM CAPA LEONARDO AI, VOZ CANTADA E KARAOKÊ
             if (song != null) ...[
               // Seletor de Variações Suno (Versão 1 vs Versão 2)
               Row(
@@ -936,41 +938,78 @@ Criado com Harmonia Studio AI (Suno Engine)
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Cabeçalho da Canção
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: _selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.music_note, color: Colors.black, size: 26),
+                      // Capa de Álbum Estilo Leonardo AI com Gradiente & Disco de Vinil
+                      Container(
+                        height: 120,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: LinearGradient(
+                            colors: _selectedVariationIndex == 0
+                                ? [const Color(0xFF0052D4), const Color(0xFF4364F7), const Color(0xFF6FB1FC)]
+                                : [const Color(0xFF8E2DE2), const Color(0xFF4A00E0), const Color(0xFF240046)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  song.title,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${song.genre} • ${song.vocalStyle} • ${song.bpm} BPM • Tom ${song.musicalKey}',
-                                  style: TextStyle(
-                                    color: _selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                          boxShadow: [
+                            BoxShadow(
+                              color: (_selectedVariationIndex == 0 ? AppTheme.cyan : AppTheme.purple).withOpacity(0.35),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            // Ícone de Capa / Vinil com Animação
+                            Container(
+                              width: 86,
+                              height: 86,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withOpacity(0.4),
+                                border: Border.all(color: Colors.white38, width: 2),
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.album, size: 54, color: Colors.white),
+                              ),
+                            ).animate(target: isPlaying ? 1 : 0).rotate(duration: 4000.ms),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      '✨ LEONARDO AI COVER',
+                                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.cyan),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    song.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${song.genre} • ${song.vocalStyle}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const Divider(color: AppTheme.dividerColor, height: 20),
+                      const SizedBox(height: 14),
 
                       // Player Master com Seekbar e Ondas Sonoras
                       Container(
@@ -1000,7 +1039,7 @@ Criado com Harmonia Studio AI (Suno Engine)
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        isPlaying ? 'Tocando: Voz Cantada + Arranjo 🎶' : 'Toque no Play para ouvir com voz e melodia',
+                                        isPlaying ? 'Cantando a sua música em tempo real 🎤🎶' : 'Toque no Play para ouvir a voz cantada',
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                       ),
                                       const SizedBox(height: 6),
@@ -1054,7 +1093,7 @@ Criado com Harmonia Studio AI (Suno Engine)
                               ),
                             ),
 
-                            // Controles de Volume (Voz e Arranjo)
+                            // Controles de Volume (Voz Cantada e Arranjo)
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -1156,7 +1195,7 @@ Criado com Harmonia Studio AI (Suno Engine)
                       const SizedBox(height: 6),
 
                       Container(
-                        height: 240,
+                        height: 250,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: AppTheme.surfaceLight,
@@ -1178,6 +1217,7 @@ Criado com Harmonia Studio AI (Suno Engine)
                                       final targetPos = Duration(milliseconds: (line.timestampSeconds * 1000).toInt());
                                       await _audioPlayer.seek(targetPos);
                                       if (_playerState != PlayerState.playing) {
+                                        _vocalAudioService.configureVocalStyle(song.vocalStyle);
                                         await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
                                       }
                                     },

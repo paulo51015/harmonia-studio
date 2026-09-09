@@ -240,7 +240,7 @@ class SettingsScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _specRow(Icons.auto_awesome, 'Versão do App', 'v1.1.0 (Compositor IA + Voz & Karaokê)'),
+                  _specRow(Icons.auto_awesome, 'Versão do App', 'v1.2.0 (Suno + Leonardo AI)'),
                   const SizedBox(height: 8),
                   _specRow(Icons.graphic_eq, 'Taxa de Amostragem', '44.1 kHz / 16-bit PCM'),
                   const SizedBox(height: 8),
@@ -273,7 +273,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const Center(
             child: Text(
-              'Harmonia Studio v1.1.0 • Build Atualizado',
+              'Harmonia Studio v1.2.0 • Suno + Leonardo AI Master',
               style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
             ),
           ),

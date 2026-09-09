@@ -1,21 +1,20 @@
 import 'dart:async';
-import 'dart:io';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../models/ai_song_model.dart';
 
-/// Serviço de Síntese e Execução Vocal Cantada em Português estilo Suno AI.
-/// Renderiza a voz cantada sincronizada com as estrofes e compassos da canção,
-/// permitindo audição em tempo real com Karaokê e mixagem de volume voz/instrumental.
+/// Serviço Nativo de Síntese e Execução Vocal Cantada em Português (Android / iOS).
+/// Utiliza o motor nativo Text-to-Speech com afinação musical e cadência rítmica
+/// para cantar as estrofes geradas pela IA diretamente no alto-falante do celular.
 class VocalAudioService {
   static final VocalAudioService _instance = VocalAudioService._internal();
   factory VocalAudioService() => _instance;
   VocalAudioService._internal();
 
-  final AudioPlayer _vocalPlayer = AudioPlayer();
+  final FlutterTts _flutterTts = FlutterTts();
   double _vocalVolume = 1.0;
   bool _isMuted = false;
+  bool _isInitialized = false;
 
   final StreamController<int?> _activeLineController = StreamController<int?>.broadcast();
   Stream<int?> get activeLineStream => _activeLineController.stream;
@@ -24,23 +23,56 @@ class VocalAudioService {
   int? get currentActiveLineIndex => _currentActiveLineIndex;
 
   List<LyricLine> _currentLyrics = [];
-  Timer? _syncTimer;
 
-  void init() {
-    _vocalPlayer.setVolume(_vocalVolume);
-    _vocalPlayer.setReleaseMode(ReleaseMode.stop);
+  Future<void> init() async {
+    if (_isInitialized) return;
+    try {
+      await _flutterTts.setLanguage('pt-BR');
+      await _flutterTts.setSpeechRate(0.42); // Cadência cantada suave
+      await _flutterTts.setPitch(1.05); // Afinação padrão
+      await _flutterTts.setVolume(_vocalVolume);
+      _isInitialized = true;
+    } catch (e) {
+      debugPrint('Aviso ao inicializar FlutterTts: $e');
+    }
+  }
+
+  void configureVocalStyle(String vocalStyle) {
+    if (!_isInitialized) init();
+    try {
+      if (vocalStyle.contains('Feminina') || vocalStyle.contains('Romântica')) {
+        _flutterTts.setPitch(1.22); // Tom agudo feminino suave
+        _flutterTts.setSpeechRate(0.40);
+      } else if (vocalStyle.contains('Masculina') || vocalStyle.contains('Piseiro') || vocalStyle.contains('Rock')) {
+        _flutterTts.setPitch(0.85); // Tom encorpado masculino
+        _flutterTts.setSpeechRate(0.45);
+      } else if (vocalStyle.contains('Gospel') || vocalStyle.contains('Dueto')) {
+        _flutterTts.setPitch(1.10); // Afinação vibrante de louvor
+        _flutterTts.setSpeechRate(0.40);
+      } else if (vocalStyle.contains('Sertaneja')) {
+        _flutterTts.setPitch(0.95);
+        _flutterTts.setSpeechRate(0.44);
+      } else {
+        _flutterTts.setPitch(1.0);
+        _flutterTts.setSpeechRate(0.42);
+      }
+    } catch (e) {
+      debugPrint('Erro ao configurar estilo vocal: $e');
+    }
   }
 
   void setVocalVolume(double volume) {
     _vocalVolume = volume.clamp(0.0, 1.0);
-    if (!_isMuted) {
-      _vocalPlayer.setVolume(_vocalVolume);
+    try {
+      _flutterTts.setVolume(_isMuted ? 0.0 : _vocalVolume);
+    } catch (e) {
+      debugPrint('Erro ao ajustar volume vocal: $e');
     }
   }
 
   void toggleMute() {
     _isMuted = !_isMuted;
-    _vocalPlayer.setVolume(_isMuted ? 0.0 : _vocalVolume);
+    setVocalVolume(_vocalVolume);
   }
 
   bool get isMuted => _isMuted;
@@ -52,11 +84,11 @@ class VocalAudioService {
     final List<LyricLine> timedLines = [];
 
     String currentSection = '[Introdução]';
-    // Começa aos 4 segundos (após introdução instrumental de 1 compasso)
-    double currentTimestamp = 4.0;
+    // Começa aos 3.5 segundos (após introdução instrumental de 1 compasso)
+    double currentTimestamp = 3.5;
     final double secondsPerBeat = 60.0 / bpm;
-    // Cada frase cantada dura em média 2 a 4 compassos (4 a 8 batidas)
-    final double phraseDuration = (secondsPerBeat * 4).clamp(2.8, 5.2);
+    // Duração média de cada frase
+    final double phraseDuration = (secondsPerBeat * 4).clamp(2.8, 5.0);
 
     int index = 0;
     for (final rawLine in lines) {
@@ -65,13 +97,12 @@ class VocalAudioService {
 
       if (line.startsWith('[') && line.endsWith(']')) {
         currentSection = line;
-        // Dá um pequeno respiro instrumental entre seções
+        // Intervalo harmônico entre seções
         currentTimestamp += secondsPerBeat * 2;
         continue;
       }
 
       if (line.startsWith('(') && line.endsWith(')')) {
-        // Instrução instrumental entre parênteses
         continue;
       }
 
@@ -92,75 +123,22 @@ class VocalAudioService {
     return timedLines;
   }
 
-  /// Faz o pré-carregamento e download dos arquivos de áudio vocal para todas as frases da letra
-  Future<List<LyricLine>> synthesizeVocalLines({
-    required List<LyricLine> lines,
-    required String vocalStyle,
-    required String genre,
-  }) async {
-    final tempDir = await getTemporaryDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final List<LyricLine> renderedLines = [];
-
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 4);
-
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final cleanText = _cleanTextForVoice(line.text);
-      if (cleanText.isEmpty) {
-        renderedLines.add(line);
-        continue;
-      }
-
-      final fileName = 'vocal_${timestamp}_line_$i.mp3';
-      final filePath = '${tempDir.path}/$fileName';
-
-      try {
-        // Gera a voz em Português Brasileiro natural
-        final encodedQuery = Uri.encodeComponent(cleanText);
-        final url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=pt-BR&client=tw-ob&q=$encodedQuery';
-        final request = await client.getUrl(Uri.parse(url));
-        request.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        
-        final response = await request.close().timeout(const Duration(seconds: 5));
-        if (response.statusCode == 200) {
-          final bytes = await consolidateHttpClientResponseBytes(response);
-          if (bytes.isNotEmpty) {
-            await File(filePath).writeAsBytes(bytes);
-            renderedLines.add(line.copyWith(audioFilePath: filePath));
-            continue;
-          }
-        }
-      } catch (e) {
-        debugPrint('Aviso: sintetizando voz offline/fallback para linha $i: $e');
-      }
-
-      // Se falhar a conexão, mantém a linha para karaokê visual sincronizado
-      renderedLines.add(line);
-    }
-
-    client.close();
-    return renderedLines;
-  }
-
-  /// Limpa pontuações indesejadas que afetam a entonação da voz
+  /// Limpa pontuações que podem atrapalhar a dicção
   String _cleanTextForVoice(String text) {
     return text
         .replaceAll(RegExp(r'\[.*?\]'), '')
         .replaceAll(RegExp(r'\(.*?\)'), '')
         .replaceAll('"', '')
         .replaceAll('*', '')
-        .replaceAll('...', ',')
+        .replaceAll('...', ', ')
         .trim();
   }
 
-  /// Sincroniza e reproduz a voz cantada na posição exata da música
+  /// Sincroniza e canta a frase correspondente ao timestamp exato da música
   void syncPlayback(Duration position, List<LyricLine> lyrics) {
     _currentLyrics = lyrics;
     final currentSec = position.inMilliseconds / 1000.0;
 
-    // Encontra qual linha deve estar ativa neste segundo
     int? activeIndex;
     LyricLine? activeLine;
 
@@ -180,39 +158,42 @@ class VocalAudioService {
       _currentActiveLineIndex = activeIndex;
       _activeLineController.add(activeIndex);
 
-      if (activeLine != null && activeLine.audioFilePath != null && !_isMuted) {
-        _playVocalSnippet(activeLine.audioFilePath!);
+      if (activeLine != null && !_isMuted && _vocalVolume > 0.05) {
+        _singPhrase(activeLine.text);
       }
     }
   }
 
-  Future<void> _playVocalSnippet(String filePath) async {
+  Future<void> _singPhrase(String text) async {
+    final clean = _cleanTextForVoice(text);
+    if (clean.isEmpty) return;
+
     try {
-      final file = File(filePath);
-      if (await file.exists()) {
-        await _vocalPlayer.stop();
-        await _vocalPlayer.play(DeviceFileSource(filePath));
-      }
+      await _flutterTts.stop();
+      await _flutterTts.speak(clean);
     } catch (e) {
-      debugPrint('Erro ao reproduzir frase vocal: $e');
+      debugPrint('Erro ao cantar frase: $e');
     }
   }
 
   Future<void> pause() async {
-    await _vocalPlayer.pause();
+    try {
+      await _flutterTts.stop();
+    } catch (_) {}
     _currentActiveLineIndex = null;
     _activeLineController.add(null);
   }
 
   Future<void> stop() async {
-    await _vocalPlayer.stop();
+    try {
+      await _flutterTts.stop();
+    } catch (_) {}
     _currentActiveLineIndex = null;
     _activeLineController.add(null);
   }
 
   void dispose() {
-    _syncTimer?.cancel();
-    _vocalPlayer.dispose();
+    _flutterTts.stop();
     _activeLineController.close();
   }
 }
