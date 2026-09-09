@@ -21,9 +21,9 @@ class VocalAudioService {
 
   List<LyricLine> _currentLyrics = [];
 
-  void init() {}
+  Future<void> init() async {}
 
-  void configureVocalStyle(String vocalStyle) {}
+  Future<void> configureVocalStyle(String vocalStyle) async {}
 
   void setVocalVolume(double volume) {
     _vocalVolume = volume.clamp(0.0, 1.0);
@@ -105,12 +105,12 @@ class VocalAudioService {
     }
   }
 
-  void pause() {
+  Future<void> pause() async {
     _currentActiveLineIndex = null;
     _activeLineController.add(null);
   }
 
-  void stop() {
+  Future<void> stop() async {
     _currentActiveLineIndex = null;
     _activeLineController.add(null);
   }
