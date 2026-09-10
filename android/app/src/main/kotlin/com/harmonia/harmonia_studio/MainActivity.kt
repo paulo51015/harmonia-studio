@@ -108,7 +108,7 @@ class MainActivity: FlutterActivity(), TextToSpeech.OnInitListener {
                         return@setMethodCallHandler
                     }
 
-                    val task = {
+                    val task: () -> Unit = {
                         try {
                             tts?.setPitch(pitch)
                             tts?.setSpeechRate(rate)
@@ -152,7 +152,7 @@ class MainActivity: FlutterActivity(), TextToSpeech.OnInitListener {
                         return@setMethodCallHandler
                     }
 
-                    val task = {
+                    val task: () -> Unit = {
                         try {
                             val file = File(path)
                             file.parentFile?.mkdirs()
