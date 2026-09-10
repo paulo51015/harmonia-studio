@@ -273,7 +273,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const Center(
             child: Text(
-              'Harmonia Studio v1.2.2 • Suno AI + Leonardo IA Engine',
+              'Harmonia Studio v1.2.4 • Suno AI + Leonardo IA Engine',
               style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
             ),
           ),

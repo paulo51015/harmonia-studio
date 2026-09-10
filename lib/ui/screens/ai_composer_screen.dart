@@ -331,6 +331,9 @@ class _AiComposerScreenState extends State<AiComposerScreen> {
       await _audioPlayer.play(DeviceFileSource(song.audioFilePath!));
       if (song.timedLyrics.isNotEmpty) {
         _vocalAudioService.syncPlayback(_position, song.timedLyrics);
+        if (_position.inSeconds < 2) {
+          _vocalAudioService.speakDirect(song.timedLyrics.first.text);
+        }
       }
     }
   }
@@ -1088,7 +1091,45 @@ Criado com Harmonia Studio AI (Suno + Leonardo AI Engine)
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
+
+                            // Botão interativo para testar a voz cantando na hora
+                            InkWell(
+                              onTap: () {
+                                final textToSing = song.timedLyrics.isNotEmpty
+                                    ? song.timedLyrics.first.text
+                                    : song.title;
+                                _vocalAudioService.speakDirect(textToSing);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Voz cantando: "$textToSing" 🎤'),
+                                    backgroundColor: AppTheme.cyan,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceLight,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppTheme.cyan.withOpacity(0.4)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.record_voice_over, size: 14, color: AppTheme.cyan),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Toque aqui para ouvir a voz cantando agora 🎤',
+                                      style: TextStyle(fontSize: 11, color: AppTheme.cyan, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
 
                             // Seekbar / Slider de Progresso
                             Slider(

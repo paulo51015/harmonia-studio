@@ -207,15 +207,27 @@ class VocalAudioService {
     } catch (_) {}
   }
 
+  /// Inicia a reprodução direta de uma frase vocal
+  Future<void> speakDirect(String text) async {
+    if (_isMuted || text.trim().isEmpty) return;
+    try {
+      await _ttsChannel.invokeMethod('speak', {
+        'text': text,
+        'pitch': _vocalPitch,
+        'rate': _speechRate,
+      });
+    } catch (_) {}
+  }
+
   /// Divide a letra completa em linhas sincronizadas com timestamps musicais para o Karaokê
   List<LyricLine> parseLyricsToTimedLines(String fullLyrics, int bpm) {
     final lines = fullLyrics.split('\n');
     final List<LyricLine> timedLines = [];
 
-    String currentSection = '[Introdução]';
-    double currentTimestamp = 3.5;
+    String currentSection = '[Verso 1]';
+    double currentTimestamp = 1.0; // Inicia a voz cantada logo no 1º segundo
     final double secondsPerBeat = 60.0 / bpm;
-    final double phraseDuration = (secondsPerBeat * 4).clamp(2.8, 5.0);
+    final double phraseDuration = (secondsPerBeat * 4).clamp(2.5, 4.5);
 
     int index = 0;
     for (final rawLine in lines) {
@@ -224,7 +236,7 @@ class VocalAudioService {
 
       if (line.startsWith('[') && line.endsWith(']')) {
         currentSection = line;
-        currentTimestamp += secondsPerBeat * 2;
+        currentTimestamp += secondsPerBeat;
         continue;
       }
 
